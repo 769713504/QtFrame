@@ -1,9 +1,12 @@
-#include "Cpp_Main/MainWindow.h"
+#include "Cpp_Main/Main.h"
+
 
 int main(int argc, char *argv[]) {
+
     QApplication _(argc, argv);
-    MainWindow w;
+    Main w;
     w.show();
     QApplication::exec();
 }
+
 
