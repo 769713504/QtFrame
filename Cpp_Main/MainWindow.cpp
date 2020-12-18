@@ -1,7 +1,4 @@
 #include "MainWindow.h"
-#include "iostream"
-
-using namespace std;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
 

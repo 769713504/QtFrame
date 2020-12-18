@@ -1,4 +1,4 @@
-#include "MainWindow.h"
+#include "Cpp_Main/MainWindow.h"
 
 int main(int argc, char *argv[]) {
     QApplication _(argc, argv);
