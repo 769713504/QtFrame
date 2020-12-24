@@ -4,6 +4,10 @@
 
 #include "MvInclude/MvCameraControl.h"
 #include <cstring>
+#include <windows.h>
+#include <QLabel>
+#include <QPixmap>
+#include "synchapi.h"
 
 #ifndef MV_NULL
 #define MV_NULL    0
@@ -13,15 +17,50 @@
 class CMvCamera {
 public:
     CMvCamera(MV_CC_DEVICE_INFO_LIST *device_info_list,//设备信息列表
-              int cam_num //相机编号
+              int cam_num,//相机编号
+              QLabel *label_main //主标签
+            , int *label_main_control_array
 
     );
 
     ~CMvCamera();
 
-    MV_CC_DEVICE_INFO *device_info;
-    int cam_num;
+    int *label_main_control_array;
+    MV_CC_PIXEL_CONVERT_PARAM bgr_image_param{};
+    unsigned char *bgr_data;
+    unsigned int nDstLen{};
+    unsigned int bgr_data_size;
+    int *show_image_control_array[6];
+    QImage q_rgb_image;
 
+
+    MV_CC_DEVICE_INFO *device_info;
+    unsigned char *m_pGrabBuf{};
+    unsigned int m_nGrabBufSize{0};
+    bool is_open{false};
+    //主窗口宽高
+    int label_main_width;
+    int label_main_height;
+    int cam_num, ret;
+    QLabel *label_main;
+    //保存图像的互斥锁
+    CRITICAL_SECTION m_hSaveImageMux{};
+
+    //输出帧的信息
+    MV_FRAME_OUT_INFO_EX m_stImageInfo;
+    //触发模式
+    bool m_nTriggerMode{false};
+    //显示句柄
+    HWND m_hwndDisplay;
+
+    //图像处理流程
+    void ProcessFlow();
+
+    //向标签中显示彩图
+    void ShowImageToMainLabel();
+
+    //去除自定义的像素格式
+    bool RemoveCustomPixelFormats(enum MvGvspPixelType enPixelFormat);
 
     // ch:获取SDK版本号 | en:Get SDK Version
     static int GetSDKVersion();
@@ -31,6 +70,12 @@ public:
 
     // ch:判断设备是否可达 | en:Is the device accessible
     static bool IsDeviceAccessible(MV_CC_DEVICE_INFO *pstDevInfo, unsigned int nAccessMode);
+
+    //取流线程
+    static void GrabThread(CMvCamera *self);
+
+    //处理
+    int GrabThreadProcess();
 
     // ch:打开设备 | en:Open Device
     int Open();
