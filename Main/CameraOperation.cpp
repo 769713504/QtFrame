@@ -5,21 +5,22 @@
 
 using namespace std;
 
-CMvCamera::CMvCamera(MV_CC_DEVICE_INFO_LIST *device_info_list,
-                     int cam_num_,
-                     QLabel *label_main,
-                     int *label_main_control_array) {
+CMvCamera::CMvCamera(CAMERA_PARAMS_LIST *camera_params) {
+    //åˆå§‹åŒ–ä¿å­˜å›¾åƒé”
     InitializeCriticalSection(&m_hSaveImageMux);
-    //Ïà»ú¾ä±ú
+    //ç›¸æœºå¥æŸ„
     m_hDevHandle = MV_NULL;
-    //
-    device_info = device_info_list->pDeviceInfo[cam_num_];
-    cam_num = cam_num_;
-    this->label_main = label_main;
-    this->label_main_control_array = label_main_control_array;
+    //æ¥æ”¶ç›¸æœºå‚æ•°ç»“æ„ä½“
+    cam_num = camera_params->cam_num;
+
+    device_info = camera_params->device_info_list->pDeviceInfo[cam_num];
+    label_main = camera_params->label_main;
+    label_main_control_array = camera_params->label_main_control_array;
     label_main_width = label_main->width();
     label_main_height = label_main->height();
+
 }
+
 
 CMvCamera::~CMvCamera() {
     if (m_hDevHandle) {
@@ -30,22 +31,12 @@ CMvCamera::~CMvCamera() {
 
 }
 
-// ch:»ñÈ¡SDK°æ±¾ºÅ
-int CMvCamera::GetSDKVersion() {
-    return MV_CC_GetSDKVersion();
-}
-
-// ch:Ã¶¾ÙÉè±¸
+//æšä¸¾è®¾å¤‡
 int CMvCamera::EnumDevices(unsigned int nTLayerType, MV_CC_DEVICE_INFO_LIST *pstDevList) {
     return MV_CC_EnumDevices(nTLayerType, pstDevList);
 }
 
-// ch:ÅĞ¶ÏÉè±¸ÊÇ·ñ¿É´ï
-bool CMvCamera::IsDeviceAccessible(MV_CC_DEVICE_INFO *pstDevInfo, unsigned int nAccessMode) {
-    return MV_CC_IsDeviceAccessible(pstDevInfo, nAccessMode);
-}
-
-// ch:´ò¿ªÉè±¸
+//æ‰“å¼€è®¾å¤‡
 int CMvCamera::Open() {
 
     if (m_hDevHandle) {
@@ -69,7 +60,7 @@ int CMvCamera::Open() {
     return nRet;
 }
 
-// ch:¹Ø±ÕÉè±¸
+//å…³é—­è®¾å¤‡
 int CMvCamera::Close() {
     if (MV_NULL == m_hDevHandle) {
         return MV_E_HANDLE;
@@ -83,41 +74,57 @@ int CMvCamera::Close() {
     return nRet;
 }
 
-// ch:ÅĞ¶ÏÏà»úÊÇ·ñ´¦ÓÚÁ¬½Ó×´Ì¬
-bool CMvCamera::IsDeviceConnected() {
-    return MV_CC_IsDeviceConnected(m_hDevHandle);
-}
-
-// ch:×¢²áÍ¼ÏñÊı¾İ»Øµ÷
-int CMvCamera::RegisterImageCallBack(void(__stdcall *cbOutput)(unsigned char *pData,
-                                                               MV_FRAME_OUT_INFO_EX *pFrameInfo,
-                                                               void *pUser), void *pUser) {
-    return MV_CC_RegisterImageCallBackEx(m_hDevHandle, cbOutput, pUser);
-}
 
 int aaa() {
 
     return 0;
 }
 
-
+//å¼€å§‹æŠ“å›¾
 int CMvCamera::StartGrabbing() {
 
     ret = MV_CC_StartGrabbing(m_hDevHandle);
 
     if (ret) {
-        cout << "Ïà»ú" << cam_num << "´ò¿ªÊ§°Ü! ´íÎó´úÂë: " << ret << endl;
+        printf("ç›¸æœº%då¯åŠ¨å¤±è´¥! é”™è¯¯ä»£ç : %d\n", cam_num, ret);
         return ret;
     } else {
-        cout << "Ïà»ú" << cam_num << "´ò¿ª³É¹¦~" << endl;
+        printf("ç›¸æœº%då¯åŠ¨æˆåŠŸ~\n", cam_num);
+        is_grabbing = true;
     }
+
+    //åˆ›å»ºçº¿ç¨‹
     thread work_thread(GrabThread, this);
+    //åˆ†ç¦»
     work_thread.detach();
-    // todo &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //    GrabThread(this);
+
+    //    Sleep(1000);
+
+    //    //æŒ‚èµ·thçº¿ç¨‹
+    //    work_thread.
+    //
+    //    SuspendThread(&work_thread.native_handle());
+
+    //    //æ€æ­»
+    //    thread work_thread22 = work_thread.native_handle();
+    //
+    //
+    //    pthread_cancel(work_thread.native_handle());
+
+
     return ret;
 }
 
+//åœæ­¢æŠ“å›¾ 
+int CMvCamera::StopGrabbing() {
+    //åœæ­¢é‡‡å›¾
+    if (!MV_CC_StopGrabbing(m_hDevHandle)) {
+        //è·³å‡ºæ­»å¾ªç¯
+        is_grabbing = false;
+    }
+
+    return 0;
+}
 
 void CMvCamera::GrabThread(CMvCamera *self) {
     self->GrabThreadProcess();
@@ -125,15 +132,15 @@ void CMvCamera::GrabThread(CMvCamera *self) {
 
 
 int CMvCamera::GrabThreadProcess() {
-    cout << "Ïà»ú" << cam_num << "½øÈëÏß³Ì~" << endl;
+    cout << "ç›¸æœº" << cam_num << "è¿›å…¥çº¿ç¨‹~" << endl;
 
 
-    //´ÓÏà»úÖĞ»ñÈ¡Ò»Ö¡Í¼Ïñ´óĞ¡
+    //ä»ç›¸æœºä¸­è·å–ä¸€å¸§å›¾åƒå¤§å°
     MVCC_INTVALUE_EX stIntValue = {0};
-    //»ñÈ¡IntÖµ
+    //è·å–Intå€¼
     int nRet = GetIntValue(IN "PayloadSize", OUT &stIntValue);
     if (nRet != MV_OK) {
-        cout << "»ñÈ¡Payload´óĞ¡Ê§°Ü" << endl;
+        cout << "è·å–Payloadå¤§å°å¤±è´¥" << endl;
         return nRet;
     }
     unsigned int nDataSize = (unsigned int) stIntValue.nCurValue;
@@ -158,57 +165,56 @@ int CMvCamera::GrabThreadProcess() {
     MV_DISPLAY_FRAME_INFO stDisplayInfo = {0};
 
     int n = 0;
-    while (is_open) {
+    while (is_grabbing) { // todo å¾…ä¼˜åŒ–
         n += 1;
-        cout << m_hDevHandle << "Ïà»ú" << cam_num << "Êä³ö-->µÚ" << n << "Ö¡" << endl;
+        printf("ç›¸æœº%dè¾“å‡º-->ç¬¬%då¸§\n", cam_num, n);
 
-        //Ğ´Í¼ ¼ÓËø
+        //å†™å›¾ åŠ é”
         EnterCriticalSection(&m_hSaveImageMux);
         nRet = GetOneFrameTimeout(m_pGrabBuf, m_nGrabBufSize, &stImageInfo, 1000);
         if (nRet == 0) { memcpy(&m_stImageInfo, &stImageInfo, sizeof(MV_FRAME_OUT_INFO_EX)); }
         LeaveCriticalSection(&m_hSaveImageMux);
 
-        //Î´»ñÈ¡µ½
+        //æœªè·å–åˆ°
         if (nRet) {
-            cout << "µÈ´ı³¬Ê±: Í¼ÏñÎª»ñÈ¡µ½!" << endl;
+            printf("ç›¸æœº%dç­‰å¾…è¶…æ—¶, å›¾åƒæœªè·å–!\n", cam_num);
             continue;
         }
 
-        //»ñÈ¡´óĞ¡
+        //è·å–å¤§å°
         bgr_data = (unsigned char *) malloc(stImageInfo.nWidth * stImageInfo.nHeight * 3);
         bgr_data_size = stImageInfo.nWidth * stImageInfo.nHeight * 3;
 
-        //½á¹¹Ìå¸³Öµ
-        bgr_image_param.nWidth = stImageInfo.nWidth;                        // [IN]  Í¼Ïñ¿í
-        bgr_image_param.nHeight = stImageInfo.nHeight;                      // [IN]  Í¼Ïñ¸ß
-        bgr_image_param.enSrcPixelType = stImageInfo.enPixelType;           // [IN]  Ô´ÏñËØ¸ñÊ½
-        bgr_image_param.pSrcData = m_pGrabBuf;                              // [IN]  ÊäÈëÊı¾İ»º´æ
-        bgr_image_param.nSrcDataLen = stImageInfo.nFrameLen;                // [IN]  ÊäÈëÊı¾İ´óĞ¡
-        bgr_image_param.enDstPixelType = PixelType_Gvsp_BGR8_Packed;        // [IN]  Ä¿±êÏñËØ¸ñÊ½
-        bgr_image_param.pDstBuffer = bgr_data;                              // [OUT] Êä³öÊı¾İ»º´æ
-        bgr_image_param.nDstBufferSize = bgr_data_size;                     // [IN]  Ìá¹©µÄÊä³ö»º³åÇø´óĞ¡
+        //ç»“æ„ä½“èµ‹å€¼
+        bgr_image_param.nWidth = stImageInfo.nWidth;                        // [IN]  å›¾åƒå®½
+        bgr_image_param.nHeight = stImageInfo.nHeight;                      // [IN]  å›¾åƒé«˜
+        bgr_image_param.enSrcPixelType = stImageInfo.enPixelType;           // [IN]  æºåƒç´ æ ¼å¼
+        bgr_image_param.pSrcData = m_pGrabBuf;                              // [IN]  è¾“å…¥æ•°æ®ç¼“å­˜
+        bgr_image_param.nSrcDataLen = stImageInfo.nFrameLen;                // [IN]  è¾“å…¥æ•°æ®å¤§å°
+        bgr_image_param.enDstPixelType = PixelType_Gvsp_BGR8_Packed;        // [IN]  ç›®æ ‡åƒç´ æ ¼å¼
+        bgr_image_param.pDstBuffer = bgr_data;                              // [OUT] è¾“å‡ºæ•°æ®ç¼“å­˜
+        bgr_image_param.nDstBufferSize = bgr_data_size;                     // [IN]  æä¾›çš„è¾“å‡ºç¼“å†²åŒºå¤§å°
 
-        //Êı¾İ×ª»»: BayerRG8-->BGR888
+        //æ•°æ®è½¬æ¢: BayerRG8-->BGR888
         if (ConvertPixelType(&bgr_image_param)) {
-            cout << "BayerRG8-->BGR888 ×ª»»Ê§°Ü!";
+            printf("BayerRG8-->BGR888 è½¬æ¢å¤±è´¥!\n");
             continue;
         }
 
-        //Í¼Ïñ´¦ÀíÁ÷³Ì
+        //å›¾åƒå¤„ç†æµç¨‹
         ProcessFlow();
 
-
-        //ÊÍ·Åmalloc
+        //é‡Šæ”¾malloc
         free(bgr_data);
     }
     return 0;
 }
 
-//Í¼Ïñ´¦ÀíÁ÷³Ì
+//å›¾åƒå¤„ç†æµç¨‹
 void CMvCamera::ProcessFlow() {
-    //¶ÁÈ¡ bgr_image_param ½á¹¹Ìå
+    //è¯»å– bgr_image_param ç»“æ„ä½“
 
-    //Ïò±êÇ©ÏÔÊ¾
+    //å‘æ ‡ç­¾æ˜¾ç¤º
     if (label_main_control_array[cam_num]) {
         ShowImageToMainLabel();
     }
@@ -220,22 +226,8 @@ void CMvCamera::ShowImageToMainLabel() {
     label_main->setPixmap(QPixmap::fromImage(q_rgb_image).scaled(label_main_width, label_main_height));
 }
 
-// ch:Í£Ö¹×¥Í¼ 
-int CMvCamera::StopGrabbing() {
-    return MV_CC_StopGrabbing(m_hDevHandle);
-}
 
-// ch:Ö÷¶¯»ñÈ¡Ò»Ö¡Í¼ÏñÊı¾İ 
-int CMvCamera::GetImageBuffer(MV_FRAME_OUT *pFrame, int nMsec) {
-    return MV_CC_GetImageBuffer(m_hDevHandle, pFrame, nMsec);
-}
-
-// ch:ÊÍ·ÅÍ¼Ïñ»º´æ 
-int CMvCamera::FreeImageBuffer(MV_FRAME_OUT *pFrame) {
-    return MV_CC_FreeImageBuffer(m_hDevHandle, pFrame);
-}
-
-// ch:Ö÷¶¯»ñÈ¡Ò»Ö¡Í¼ÏñÊı¾İ 
+//ä¸»åŠ¨è·å–ä¸€å¸§å›¾åƒæ•°æ®
 int CMvCamera::GetOneFrameTimeout(unsigned char *pData,
                                   unsigned int nDataSize,
                                   MV_FRAME_OUT_INFO_EX *pFrameInfo,
@@ -243,22 +235,60 @@ int CMvCamera::GetOneFrameTimeout(unsigned char *pData,
     return MV_CC_GetOneFrameTimeout(m_hDevHandle, pData, nDataSize, pFrameInfo, nMsec);
 }
 
-// ch:ÉèÖÃÏÔÊ¾´°¿Ú¾ä±ú 
-int CMvCamera::DisplayOneFrame(MV_DISPLAY_FRAME_INFO *pDisplayInfo) {
-    return MV_CC_DisplayOneFrame(m_hDevHandle, pDisplayInfo);
-}
-
-// ch:ÉèÖÃSDKÄÚ²¿Í¼Ïñ»º´æ½Úµã¸öÊı 
-int CMvCamera::SetImageNodeNum(unsigned int nNum) {
-    return MV_CC_SetImageNodeNum(m_hDevHandle, nNum);
-}
-
-// ch:»ñÈ¡Éè±¸ĞÅÏ¢ 
+//è·å–è®¾å¤‡ä¿¡æ¯
 int CMvCamera::GetDeviceInfo(MV_CC_DEVICE_INFO *pstDevInfo) {
     return MV_CC_GetDeviceInfo(m_hDevHandle, pstDevInfo);
 }
 
-// ch:»ñÈ¡GEVÏà»úµÄÍ³¼ÆĞÅÏ¢ 
+//åƒç´ æ ¼å¼è½¬æ¢
+int CMvCamera::ConvertPixelType(MV_CC_PIXEL_CONVERT_PARAM *pstCvtParam) {
+    return MV_CC_ConvertPixelType(m_hDevHandle, pstCvtParam);
+}
+
+//è·å–å’Œè®¾ç½®Intå‹å‚æ•°ï¼Œå¦‚ Widthå’ŒHeightï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶
+int CMvCamera::GetIntValue(IN const char *strKey, OUT MVCC_INTVALUE_EX *pIntValue) {
+    return MV_CC_GetIntValueEx(m_hDevHandle, strKey, pIntValue);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Todo/////////////////////////////////////////////æœªä½¿ç”¨çš„å‡½æ•°/////////////////////////////////////////////////////////////
+
+//ä¸»åŠ¨è·å–ä¸€å¸§å›¾åƒæ•°æ®
+int CMvCamera::GetImageBuffer(MV_FRAME_OUT *pFrame, int nMsec) {
+    return MV_CC_GetImageBuffer(m_hDevHandle, pFrame, nMsec);
+}
+
+//é‡Šæ”¾å›¾åƒç¼“å­˜
+int CMvCamera::FreeImageBuffer(MV_FRAME_OUT *pFrame) {
+    return MV_CC_FreeImageBuffer(m_hDevHandle, pFrame);
+}
+
+//è®¾ç½®æ˜¾ç¤ºçª—å£å¥æŸ„
+int CMvCamera::DisplayOneFrame(MV_DISPLAY_FRAME_INFO *pDisplayInfo) {
+    return MV_CC_DisplayOneFrame(m_hDevHandle, pDisplayInfo);
+}
+
+//è®¾ç½®SDKå†…éƒ¨å›¾åƒç¼“å­˜èŠ‚ç‚¹ä¸ªæ•°
+int CMvCamera::SetImageNodeNum(unsigned int nNum) {
+    return MV_CC_SetImageNodeNum(m_hDevHandle, nNum);
+}
+
+
+//è·å–GEVç›¸æœºçš„ç»Ÿè®¡ä¿¡æ¯
 int CMvCamera::GetGevAllMatchInfo(MV_MATCH_INFO_NET_DETECT *pMatchInfoNetDetect) {
     if (MV_NULL == pMatchInfoNetDetect) {
         return MV_E_PARAMETER;
@@ -280,7 +310,7 @@ int CMvCamera::GetGevAllMatchInfo(MV_MATCH_INFO_NET_DETECT *pMatchInfoNetDetect)
     return MV_CC_GetAllMatchInfo(m_hDevHandle, &struMatchInfo);
 }
 
-// ch:»ñÈ¡U3VÏà»úµÄÍ³¼ÆĞÅÏ¢ 
+//è·å–U3Vç›¸æœºçš„ç»Ÿè®¡ä¿¡æ¯
 int CMvCamera::GetU3VAllMatchInfo(MV_MATCH_INFO_USB_DETECT *pMatchInfoUSBDetect) {
     if (MV_NULL == pMatchInfoUSBDetect) {
         return MV_E_PARAMETER;
@@ -302,18 +332,11 @@ int CMvCamera::GetU3VAllMatchInfo(MV_MATCH_INFO_USB_DETECT *pMatchInfoUSBDetect)
     return MV_CC_GetAllMatchInfo(m_hDevHandle, &struMatchInfo);
 }
 
-// ch:»ñÈ¡ºÍÉèÖÃIntĞÍ²ÎÊı£¬Èç WidthºÍHeight£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼ş
-// en:Get Int type parameters, such as Width and Height, for details please refer to MvCameraNode.xlsx file under SDK installation directory
-int CMvCamera::GetIntValue(IN const char *strKey, OUT MVCC_INTVALUE_EX *pIntValue) {
-    return MV_CC_GetIntValueEx(m_hDevHandle, strKey, pIntValue);
-}
-
 int CMvCamera::SetIntValue(IN const char *strKey, IN int64_t nValue) {
     return MV_CC_SetIntValueEx(m_hDevHandle, strKey, nValue);
 }
 
-// ch:»ñÈ¡ºÍÉèÖÃEnumĞÍ²ÎÊı£¬Èç PixelFormat£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼ş
-// en:Get Enum type parameters, such as PixelFormat, for details please refer to MvCameraNode.xlsx file under SDK installation directory
+//è·å–å’Œè®¾ç½®Enumå‹å‚æ•°ï¼Œå¦‚ PixelFormatï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶
 int CMvCamera::GetEnumValue(IN const char *strKey, OUT MVCC_ENUMVALUE *pEnumValue) {
     return MV_CC_GetEnumValue(m_hDevHandle, strKey, pEnumValue);
 }
@@ -326,8 +349,7 @@ int CMvCamera::SetEnumValueByString(IN const char *strKey, IN const char *sValue
     return MV_CC_SetEnumValueByString(m_hDevHandle, strKey, sValue);
 }
 
-// ch:»ñÈ¡ºÍÉèÖÃFloatĞÍ²ÎÊı£¬Èç ExposureTimeºÍGain£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼ş
-// en:Get Float type parameters, such as ExposureTime and Gain, for details please refer to MvCameraNode.xlsx file under SDK installation directory
+//è·å–å’Œè®¾ç½®Floatå‹å‚æ•°ï¼Œå¦‚ ExposureTimeå’ŒGainï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶
 int CMvCamera::GetFloatValue(IN const char *strKey, OUT MVCC_FLOATVALUE *pFloatValue) {
     return MV_CC_GetFloatValue(m_hDevHandle, strKey, pFloatValue);
 }
@@ -336,8 +358,7 @@ int CMvCamera::SetFloatValue(IN const char *strKey, IN float fValue) {
     return MV_CC_SetFloatValue(m_hDevHandle, strKey, fValue);
 }
 
-// ch:»ñÈ¡ºÍÉèÖÃBoolĞÍ²ÎÊı£¬Èç ReverseX£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼ş
-// en:Get Bool type parameters, such as ReverseX, for details please refer to MvCameraNode.xlsx file under SDK installation directory
+//è·å–å’Œè®¾ç½®Boolå‹å‚æ•°ï¼Œå¦‚ ReverseXï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶
 int CMvCamera::GetBoolValue(IN const char *strKey, OUT bool *pbValue) {
     return MV_CC_GetBoolValue(m_hDevHandle, strKey, pbValue);
 }
@@ -346,8 +367,7 @@ int CMvCamera::SetBoolValue(IN const char *strKey, IN bool bValue) {
     return MV_CC_SetBoolValue(m_hDevHandle, strKey, bValue);
 }
 
-// ch:»ñÈ¡ºÍÉèÖÃStringĞÍ²ÎÊı£¬Èç DeviceUserID£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼şUserSetSave
-// en:Get String type parameters, such as DeviceUserID, for details please refer to MvCameraNode.xlsx file under SDK installation directory
+//è·å–å’Œè®¾ç½®Stringå‹å‚æ•°ï¼Œå¦‚ DeviceUserIDï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶UserSetSave
 int CMvCamera::GetStringValue(IN const char *strKey, MVCC_STRINGVALUE *pStringValue) {
     return MV_CC_GetStringValue(m_hDevHandle, strKey, pStringValue);
 }
@@ -356,71 +376,88 @@ int CMvCamera::SetStringValue(IN const char *strKey, IN const char *strValue) {
     return MV_CC_SetStringValue(m_hDevHandle, strKey, strValue);
 }
 
-// ch:Ö´ĞĞÒ»´ÎCommandĞÍÃüÁî£¬Èç UserSetSave£¬ÏêÏ¸ÄÚÈİ²Î¿¼SDK°²×°Ä¿Â¼ÏÂµÄ MvCameraNode.xlsx ÎÄ¼ş
-// en:Execute Command once, such as UserSetSave, for details please refer to MvCameraNode.xlsx file under SDK installation directory
+//æ‰§è¡Œä¸€æ¬¡Commandå‹å‘½ä»¤ï¼Œå¦‚ UserSetSaveï¼Œè¯¦ç»†å†…å®¹å‚è€ƒSDKå®‰è£…ç›®å½•ä¸‹çš„ MvCameraNode.xlsx æ–‡ä»¶
 int CMvCamera::CommandExecute(IN const char *strKey) {
     return MV_CC_SetCommandValue(m_hDevHandle, strKey);
 }
 
-// ch:Ì½²âÍøÂç×î¼Ñ°ü´óĞ¡(Ö»¶ÔGigEÏà»úÓĞĞ§) 
+//æ¢æµ‹ç½‘ç»œæœ€ä½³åŒ…å¤§å°(åªå¯¹GigEç›¸æœºæœ‰æ•ˆ) 
 int CMvCamera::GetOptimalPacketSize(unsigned int *pOptimalPacketSize) {
     if (MV_NULL == pOptimalPacketSize) {
         return MV_E_PARAMETER;
     }
-
     int nRet = MV_CC_GetOptimalPacketSize(m_hDevHandle);
     if (nRet < MV_OK) {
         return nRet;
     }
-
     *pOptimalPacketSize = (unsigned int) nRet;
 
     return MV_OK;
 }
 
-// ch:×¢²áÏûÏ¢Òì³£»Øµ÷ 
+
+//æ³¨å†Œæ¶ˆæ¯å¼‚å¸¸å›è°ƒ
 int CMvCamera::RegisterExceptionCallBack(void(__stdcall *cbException)(unsigned int nMsgType, void *pUser),
                                          void *pUser) {
     return MV_CC_RegisterExceptionCallBack(m_hDevHandle, cbException, pUser);
 }
 
-// ch:×¢²áµ¥¸öÊÂ¼ş»Øµ÷ 
+//æ³¨å†Œå•ä¸ªäº‹ä»¶å›è°ƒ 
 int CMvCamera::RegisterEventCallBack(const char *pEventName,
                                      void(__stdcall *cbEvent)(MV_EVENT_OUT_INFO *pEventInfo, void *pUser),
                                      void *pUser) {
     return MV_CC_RegisterEventCallBackEx(m_hDevHandle, pEventName, cbEvent, pUser);
 }
 
-// ch:Ç¿ÖÆIP 
+//å¼ºåˆ¶IP 
 int CMvCamera::ForceIp(unsigned int nIP, unsigned int nSubNetMask, unsigned int nDefaultGateWay) {
     return MV_GIGE_ForceIpEx(m_hDevHandle, nIP, nSubNetMask, nDefaultGateWay);
 }
 
-// ch:ÅäÖÃIP·½Ê½ 
+//é…ç½®IPæ–¹å¼ 
 int CMvCamera::SetIpConfig(unsigned int nType) {
     return MV_GIGE_SetIpConfig(m_hDevHandle, nType);
 }
 
-// ch:ÉèÖÃÍøÂç´«ÊäÄ£Ê½ 
+//è®¾ç½®ç½‘ç»œä¼ è¾“æ¨¡å¼ 
 int CMvCamera::SetNetTransMode(unsigned int nType) {
     return MV_GIGE_SetNetTransMode(m_hDevHandle, nType);
 }
 
-// ch:ÏñËØ¸ñÊ½×ª»» 
-int CMvCamera::ConvertPixelType(MV_CC_PIXEL_CONVERT_PARAM *pstCvtParam) {
-    return MV_CC_ConvertPixelType(m_hDevHandle, pstCvtParam);
-}
 
-// ch:±£´æÍ¼Æ¬ 
+//ä¿å­˜å›¾ç‰‡
 int CMvCamera::SaveImage(MV_SAVE_IMAGE_PARAM_EX *pstParam) {
     return MV_CC_SaveImageEx2(m_hDevHandle, pstParam);
 }
 
-// ch:±£´æÍ¼Æ¬ÎªÎÄ¼ş 
+//ä¿å­˜å›¾ç‰‡ä¸ºæ–‡ä»¶ 
 int CMvCamera::SaveImageToFile(MV_SAVE_IMG_TO_FILE_PARAM *pstSaveFileParam) {
     return MV_CC_SaveImageToFile(m_hDevHandle, pstSaveFileParam);
 }
 
+
+//è·å–SDKç‰ˆæœ¬å·
+int CMvCamera::GetSDKVersion() {
+    return MV_CC_GetSDKVersion();
+}
+
+//åˆ¤æ–­ç›¸æœºæ˜¯å¦å¤„äºè¿æ¥çŠ¶æ€
+bool CMvCamera::IsDeviceConnected() {
+    return MV_CC_IsDeviceConnected(m_hDevHandle);
+}
+
+//æ³¨å†Œå›¾åƒæ•°æ®å›è°ƒ
+int CMvCamera::RegisterImageCallBack(void(__stdcall *cbOutput)(unsigned char *pData,
+                                                               MV_FRAME_OUT_INFO_EX *pFrameInfo,
+                                                               void *pUser), void *pUser) {
+    return MV_CC_RegisterImageCallBackEx(m_hDevHandle, cbOutput, pUser);
+}
+
+
+//åˆ¤æ–­è®¾å¤‡æ˜¯å¦å¯è¾¾
+bool CMvCamera::IsDeviceAccessible(MV_CC_DEVICE_INFO *pstDevInfo, unsigned int nAccessMode) {
+    return MV_CC_IsDeviceAccessible(pstDevInfo, nAccessMode);
+}
 
 bool CMvCamera::RemoveCustomPixelFormats(enum MvGvspPixelType enPixelFormat) {
     int nResult = enPixelFormat & MV_GVSP_PIX_CUSTOM;
@@ -430,3 +467,5 @@ bool CMvCamera::RemoveCustomPixelFormats(enum MvGvspPixelType enPixelFormat) {
         return false;
     }
 }
+
+

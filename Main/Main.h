@@ -20,7 +20,7 @@ Q_OBJECT
 private slots:
 
     //开始或停止运行
-    void startOrStopRun(int a = 0);
+    void startOrStopRun();
 
     //变更当前相机
     void changNowCamera(int cam_num = 88);

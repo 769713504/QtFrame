@@ -58,36 +58,21 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
 
 //变更当前相机:param cam_num:相机编号
 void Main::changNowCamera(int cam_num) {
-    cout << "++++++++++++++++++++++++++++++++++++++" << cam_num << endl;
-
-
     if (!cam_sum || cam_num == now_show_num) {
         return;
     }
-
     now_show_num = cam_num;
     //显示当前编号的 参数列表
     showNowCameraArgslist();
     //显示当前编号的图像
     showImageToMainLabelByRadioButtonControl();
-
-    //        cout << "0" << end;
-
-    //        :
-    //        return
-    //                # 重置当前编号
-    //                self.now_show_num = cam_num
-    //        # 显示当前编号的 参数列表
-    //        self.showNowCameraArgslist()
-    //        # 显示当前编号的图像
-    //        self.showImageToMainLabelByRadioButtonControl()
-    //        # 从缓存显示
-    //        self.displayFromCache()
-    //        # 显示训练模式下的矩形区域
-    //        self.label_main.updateRect(*(self.train_coordinates_list[self.now_show_num]))
+    //从缓存显示
+    displayFromCache();
+    //    显示训练模式下的矩形区域
+    //    label_main.updateRect(*(self.train_coordinates_list[self.now_show_num]))
 }
 
-//显示当前相机的参数列表
+//显示当前相机的参数列表 todo
 void Main::showNowCameraArgslist() {
     //
     //    for (int cam_num ; cam_num<cam_sum;cam_num++){
@@ -107,6 +92,7 @@ void Main::showNowCameraArgslist() {
 
 }
 
+
 //点击相机单选按钮,显示图片到主标签(通过开关控制)
 void Main::showImageToMainLabelByRadioButtonControl() {
     //置空
@@ -119,15 +105,14 @@ void Main::showImageToMainLabelByRadioButtonControl() {
         label_main_control_array[now_show_num] = 1;
 }
 
-//从缓存显示
+//从缓存显示 todo
 void Main::displayFromCache() {
+
 
 }
 
 //运行或停止
-void Main::startOrStopRun(int a) {
-    cout << "=============" << a << endl;
-
+void Main::startOrStopRun() {
 
     if (!cam_sum) {
         ui->pushButton_05->setChecked(false);
@@ -173,13 +158,14 @@ int Main::getCameraSum() {
 
 //获取相机对象Vector
 vector<CMvCamera> Main::getCameraObjVector() {
-    vector<CMvCamera> camera_obj_vector_;
+    vector<CMvCamera> _camera_obj_vector;
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
+        CAMERA_PARAMS_LIST camera_params_list{cam_num, &device_info, ui->label_main, label_main_control_array};
         //创建相机对象
-        CMvCamera camera_obj(&device_info, cam_num, ui->label_main, label_main_control_array);
-        camera_obj_vector_.push_back(camera_obj);
+        CMvCamera camera_obj(&camera_params_list);
+        _camera_obj_vector.push_back(camera_obj);
     }
-    return camera_obj_vector_;
+    return _camera_obj_vector;
 }
 
 //打开所有相机
@@ -206,6 +192,8 @@ int Main::startAllGrabbing() {
 int Main::stopAllGrabbing() {
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
         camera_obj_vector.at(cam_num).StopGrabbing();
+
+        cout << "tingzhi  " << cam_num << endl;
     }
 }
 
