@@ -1,9 +1,12 @@
 #include <QMessageBox>
+#include <QInputDialog>
 #include   "Main.h"
-
+#include   "Child_CameraConfig/CameraConfig.h"
 
 void Main::test() {
-    cout << "测试" << endl;
+
+    confirmPassword("admin", "权限验证");
+    cout << "Test~" << endl;
 }
 
 int fun01() {
@@ -22,8 +25,8 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     //设置系统配置路径
     config_path = "./File_Config/";
-
-    ui->label_main;
+    //枚举设备: 获取相机数量(从设备信息中)
+    cam_sum = getCameraSum();
     //读取系统参数
     getSystemParameter();
     //读取相机配置
@@ -36,14 +39,16 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     initializeSetting();
 
 
-    //枚举设备: 获取相机数量(从设备信息中)
-    cam_sum = getCameraSum();
+
     //获取设备容器
     camera_obj_vector = getCameraObjVector();
     //打开设备
-    ret = openAllCamera();
+    openAllCamera();
 
-    //单选按钮
+
+
+
+    // 单选按钮
     connect(ui->radioButton_0, &QPushButton::clicked, [=] { changNowCamera(0); });
     connect(ui->radioButton_1, &QPushButton::clicked, [=] { changNowCamera(1); });
     connect(ui->radioButton_2, &QPushButton::clicked, [=] { changNowCamera(2); });
@@ -51,10 +56,52 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     connect(ui->radioButton_4, &QPushButton::clicked, [=] { changNowCamera(4); });
     connect(ui->radioButton_5, &QPushButton::clicked, [=] { changNowCamera(5); });
     // 普通按钮
-    connect(ui->pushButton_05, SIGNAL(clicked()), this, SLOT(startOrStopRun()));//循环抓取
+    connect(ui->pushButton_00, SIGNAL(clicked()), SLOT(restartDevice()));                       // 重启程序
+    connect(ui->pushButton_01, SIGNAL(clicked()), SLOT(changNowImage()));                       // 原始图像/灰度图
+    connect(ui->pushButton_02, SIGNAL(clicked()), SLOT(Window_CameraConfig()));                 // 启动/停止运行
+
+    connect(ui->pushButton_05, SIGNAL(clicked()), SLOT(startOrStopRun()));                      // 启动/停止运行
+    connect(ui->pushButton_10, SIGNAL(clicked()), SLOT(closeDevice()));                         // 退出:关闭程序
+    connect(ui->pushButton_09, SIGNAL(clicked()), SLOT(test()));                                // 退出:关闭程序
 }
 
 //Todo 已完成功能 ######################################################################################################
+
+
+//子窗口-->相机配置
+void Main::Window_CameraConfig() {
+    //拦截无相机
+    if (cam_sum == 0) {
+        QMessageBox::about(this, "无相机", "未检测到相机,该项不能设置!");
+        return;
+    }
+    //权限验证
+    if (!confirmPassword("user", "相机配置"))
+        return;
+    CameraConfig camera_config_window(this);
+    camera_config_window.exec();
+}
+
+//重启程序
+void Main::restartDevice() {
+
+    __DirectlyRestart();
+
+}
+
+
+// 彩图/灰度图
+void Main::changNowImage() {
+    if (ui->pushButton_01->isChecked()) {
+        label_main_control_array[now_show_num] = 2;
+        ui->pushButton_01->setText("灰度图");
+    } else {
+        label_main_control_array[now_show_num] = 1;
+        ui->pushButton_01->setText("原始图像");
+    }
+    // 从缓存图显示
+    // displayFromCache()
+}
 
 //变更当前相机:param cam_num:相机编号
 void Main::changNowCamera(int cam_num) {
@@ -74,7 +121,7 @@ void Main::changNowCamera(int cam_num) {
 
 //显示当前相机的参数列表 todo
 void Main::showNowCameraArgslist() {
-    //
+    ///**/
     //    for (int cam_num ; cam_num<cam_sum;cam_num++){
     //        if (cam_num=now_show_num) {
     //            cout << '参数列表%s   显示' % i << endl;
@@ -108,6 +155,17 @@ void Main::showImageToMainLabelByRadioButtonControl() {
 //从缓存显示 todo
 void Main::displayFromCache() {
 
+
+}
+
+//运行或停止
+void Main::closeDevice() {/**/
+    /**/
+    //权限验证
+
+    //关闭所有相机
+    closeAllCamera();
+    //    exit(0);
 
 }
 
@@ -169,36 +227,34 @@ vector<CMvCamera> Main::getCameraObjVector() {
 }
 
 //打开所有相机
-int Main::openAllCamera() {
-    ret = 0;
+void Main::openAllCamera() {
+
+    printf("Open camera:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        ret += camera_obj_vector.at(cam_num).Open();
-        cout << "Camera " << cam_num << " is on~" << endl;
+        camera_obj_vector.at(cam_num).Open();
     }
-    return ret;
 }
 
 //全部开始抓取
-int Main::startAllGrabbing() {
-    cout << "camera sum" << cam_sum << endl;
+void Main::startAllGrabbing() {
 
+    printf("Start grabbing\n: ");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        cout << "camera" << cam_num << "  begin" << endl;
         camera_obj_vector.at(cam_num).StartGrabbing();
     }
 }
 
 //停止所有抓取
-int Main::stopAllGrabbing() {
+void Main::stopAllGrabbing() {
+    printf("Stop grabbing:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
         camera_obj_vector.at(cam_num).StopGrabbing();
-
-        cout << "tingzhi  " << cam_num << endl;
     }
 }
 
 //关闭所有相机
-int Main::closeAllCamera() {
+void Main::closeAllCamera() {
+    printf("Close camera:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
         camera_obj_vector.at(cam_num).Close();
     }
@@ -209,9 +265,9 @@ int Main::closeAllCamera() {
 // 读取系统参数
 void Main::getSystemParameter() {
 
-    char *lpPath = new char[128];
-
     system_config_path = config_path + "config.ini";
+
+    char *lpPath = new char[128];
     strcpy(lpPath, system_config_path.data());
 
     run_mode = GetPrivateProfileInt("run", "mode", -66, lpPath);
@@ -225,7 +281,7 @@ void Main::getSystemParameter() {
     GetPrivateProfileString("password", "admin", "", admin_password, 16, lpPath);
 
     GetPrivateProfileString("product", "type", "", product_type, 128, lpPath);
-    GetPrivateProfileString("product", "list", "", product_type, 256, lpPath);
+    GetPrivateProfileString("product", "list", "", product_list, 256, lpPath);
 
     control_rejector = GetPrivateProfileInt("control", "rejector", -66, lpPath);
     GetPrivateProfileString("control", "port", "", control_port, 8, lpPath);
@@ -235,19 +291,45 @@ void Main::getSystemParameter() {
 
 //读取相机配置
 void Main::getCameraConfigInfo() {
-    getConfigPathVector();
-    getConfigObjVector();
+    camera_config_dir = config_path + product_type + "/";
+    //获取相机配置对象Vector
+    camera_config_vector = getConfigObjVector();
 }
 
-//
+//获取相机对象Vector
+vector<CONFIG_FILE_LIST> Main::getConfigObjVector() {
+
+    vector<CONFIG_FILE_LIST> _camera_config_vector;
+    printf("+++++++++++++++++++++++++++++++++%d+++++++++++++++++++++++++++\n", cam_sum);
+    char *lpPath = new char[128];
+    int exposure_time, image_gain, frame_rate, train[4];
+
+    for (int i = 0; i < cam_sum; i++) {
+        string camera_config_path = camera_config_dir + "camera" + to_string(i) + ".ini";
+        strcpy(lpPath, camera_config_path.data());
+
+        exposure_time = GetPrivateProfileInt("camera", "exposure_time", -66, lpPath);
+        image_gain = GetPrivateProfileInt("camera", "image_gain", -66, lpPath);
+        frame_rate = GetPrivateProfileInt("camera", "frame_rate", -66, lpPath);
+        train[0] = GetPrivateProfileInt("train", "x1", -66, lpPath);
+        train[1] = GetPrivateProfileInt("train", "x2", -66, lpPath);
+        train[2] = GetPrivateProfileInt("train", "y1", -66, lpPath);
+        train[3] = GetPrivateProfileInt("train", "y2", -66, lpPath);
+
+        //todo 参数未添加
+
+        CONFIG_FILE_LIST camera_config_list{exposure_time, image_gain, frame_rate, train};
+        _camera_config_vector.push_back(camera_config_list);
+
+    }
+    return _camera_config_vector;
+}
+
+//获取相机路径Vector
 int Main::getConfigPathVector() {
 
 }
 
-//
-int Main::getConfigObjVector() {
-
-}
 
 //定义变量
 void Main::defineVariable() {
@@ -265,9 +347,89 @@ void Main::initializeSetting() {
 
 }
 
+//直接重启: 内部调用
+void Main::__DirectlyRestart() {
+    __ReadyQuit();
+    //返回重启编号
+    QApplication::exit(6);
+}
+
+// 准备离开: 内部调用,结束任务
+void Main::__ReadyQuit() {
+    // 持久化参数到文件
+    saveConfig();
+    // 停止抓取
+    stopRun();
+    // 关闭所有相机
+    closeAllCamera();
+    // 保存csv
+    updateCsv();
+
+}
+
+void Main::saveConfig() {
+    // todo
+
+}
+
+void Main::updateCsv() {
+    //todo
+}
+
+//检查密码的函数, 密码正确返回True
+bool Main::confirmPassword(string utype, string info) {
+
+    bool ok;
+    string password, text;
+    if (utype == "admin") {
+        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入管理员密码~", QLineEdit::Password, "",
+                                     &ok).toStdString();
+        password = admin_password;
+        cout << text << endl;
+    } else {
+        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入用户密码~", QLineEdit::Password, "",
+                                     &ok).toStdString();
+        password = user_password;
+    }
+
+    if (ok) {
+        if (text == password) return true;
+        else if (QMessageBox::warning(this, "密码错误", "密码应为1~6位字符!\\n是否重试?", QMessageBox::Yes | QMessageBox::No) ==
+                 QMessageBox::Yes)
+            return confirmPassword(utype, info);
+        else return false;
+    } else return false;
+}
+
+// 显示与隐藏相机单选按钮: 按相机个数
+void Main::hideRadioButton() {
+    if (cam_sum <= 0) { ui->radioButton_0->setVisible(false); } else { ui->radioButton_0->setVisible(true); }
+    if (cam_sum <= 1) { ui->radioButton_1->setVisible(false); } else { ui->radioButton_1->setVisible(true); }
+    if (cam_sum <= 2) { ui->radioButton_2->setVisible(false); } else { ui->radioButton_2->setVisible(true); }
+    if (cam_sum <= 3) { ui->radioButton_3->setVisible(false); } else { ui->radioButton_3->setVisible(true); }
+    if (cam_sum <= 4) { ui->radioButton_4->setVisible(false); } else { ui->radioButton_4->setVisible(true); }
+    if (cam_sum <= 5) { ui->radioButton_5->setVisible(false); } else { ui->radioButton_5->setVisible(true); }
 
 
+}
 
+// 禁用单选按钮
+void Main::disabledRadioButton() {
+    ui->radioButton_0->setEnabled(false);
+    ui->radioButton_1->setEnabled(false);
+    ui->radioButton_2->setEnabled(false);
+    ui->radioButton_3->setEnabled(false);
+    ui->radioButton_4->setEnabled(false);
+    ui->radioButton_5->setEnabled(false);
 
+}
 
-
+// 启用单选按钮
+void Main::enabledRadioButton() {
+    ui->radioButton_0->setEnabled(true);
+    ui->radioButton_1->setEnabled(true);
+    ui->radioButton_2->setEnabled(true);
+    ui->radioButton_3->setEnabled(true);
+    ui->radioButton_4->setEnabled(true);
+    ui->radioButton_5->setEnabled(true);
+}

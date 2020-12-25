@@ -27,7 +27,9 @@ find_package(Qt5Gui)
 #查找./下的所有源文件(FindPath SourceFileList)
 aux_source_directory(./ SRC_LIST)
 #查找./Cxx_Main下的所有源文件 -->添加到SRC_LIST
-aux_source_directory(Main SRC_LIST)
+aux_source_directory(./Main SRC_LIST)
+#查找./Child_CameraConfig下的所有源文件 -->添加到SRC_LIST
+aux_source_directory(./Child_CameraConfig SRC_LIST)
 
 
 #生成可执行文件(ExecutableName SourceFileList)

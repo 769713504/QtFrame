@@ -1,7 +1,6 @@
 #ifndef QTFRAME_CAMERAOPERATION_H
 #define QTFRAME_CAMERAOPERATION_H
 
-
 #include "MvInclude/MvCameraControl.h"
 #include <cstring>
 #include <windows.h>
@@ -13,7 +12,7 @@
 #define MV_NULL    0
 #endif
 
-
+//相机参数结构体
 struct CAMERA_PARAMS_LIST {
     int cam_num;                                    //相机编号
     MV_CC_DEVICE_INFO_LIST *device_info_list;       //设备信息列表

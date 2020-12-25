@@ -6,12 +6,22 @@
 #include "iostream"
 #include  "CameraOperation.h"
 
-
 namespace Ui {
     class MainWindow;
 }
 
 using namespace std;
+
+
+
+//相机配置文件列表结构体
+struct CONFIG_FILE_LIST {
+    int exposure_time;
+    int image_gain;
+    int frame_rate;
+    int *train;
+};
+
 
 class Main : public QMainWindow {
 Q_OBJECT
@@ -19,11 +29,23 @@ Q_OBJECT
     //声明槽函数
 private slots:
 
+    //相机配置
+    void Window_CameraConfig();
+
+    //重启程序
+    void restartDevice();
+
+    // 原图/灰度图
+    void changNowImage();
+
     //开始或停止运行
     void startOrStopRun();
 
+    //关闭设备
+    void closeDevice();
+
     //变更当前相机
-    void changNowCamera(int cam_num = 88);
+    void changNowCamera(int cam_num);
 
     void test();
 
@@ -40,6 +62,7 @@ public:
     int now_show_num{0};
     string config_path{""};
     string system_config_path;
+    string camera_config_dir;
     //    int system_config_obj;
     int run_mode;
     int save_mode;
@@ -55,15 +78,15 @@ public:
 
     //******************************************读取相机配置文件***********************************************************
 
-    vector<string> camera_config_path_vector;
-    vector<string> camera_config_obj_vector;
+    //相机配置参数Vector
+    vector<CONFIG_FILE_LIST> camera_config_vector;
+
 
     //获取相机路径Vector
     int getConfigPathVector();
 
     //获取相机对象Vector
-    int getConfigObjVector();
-
+    vector<CONFIG_FILE_LIST> getConfigObjVector();
 
     //显示当前编号的 参数列表
     void showNowCameraArgslist();
@@ -79,6 +102,18 @@ public:
     vector<CMvCamera> camera_obj_vector;
 
 
+    // 禁用单选按钮
+    void enabledRadioButton();
+
+    // 启用单选按钮
+    void disabledRadioButton();
+
+    // 显示与隐藏相机单选按钮: 按相机个数
+    void hideRadioButton();
+
+    // 检查密码的函数, 密码正确返回True
+    bool confirmPassword(string utype = "user", string info = "权限验证");
+
     // ################################################################################################
     void startRun();
 
@@ -91,17 +126,18 @@ public:
     //获取相机对象Vector
     vector<CMvCamera> getCameraObjVector();
 
+
     //打开所有相机
-    int openAllCamera();
+    void openAllCamera();
 
     //循环开始取流
-    int startAllGrabbing();
+    void startAllGrabbing();
 
     //停止所有相机抓图
-    int stopAllGrabbing();
+    void stopAllGrabbing();
 
     //关闭所有相机
-    int closeAllCamera();
+    void closeAllCamera();
 
     void getSystemParameter();
 
@@ -119,7 +155,14 @@ public:
 
 private:
     Ui::MainWindow *ui;
-};
 
+    void __DirectlyRestart();
+
+    void __ReadyQuit();
+
+    void saveConfig();
+
+    void updateCsv();
+};
 
 #endif
