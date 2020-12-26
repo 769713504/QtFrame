@@ -13,9 +13,10 @@ namespace Ui {
 using namespace std;
 
 
+// Todo ------------------------------------------------  结构体定义  ----------------------------------------------------
 
-//相机配置文件列表结构体
-struct CONFIG_FILE_LIST {
+//相机配置结构体
+struct CAMERA_CONFIG_STRUCT {
     int exposure_time;
     int image_gain;
     int frame_rate;
@@ -26,67 +27,68 @@ struct CONFIG_FILE_LIST {
 class Main : public QMainWindow {
 Q_OBJECT
 
-    //声明槽函数
-private slots:
+public: // Todo -----------------------------------------  公有变量  -----------------------------------------------------
+
+    //子窗口调用: 是否更改参数
+    bool is_change_param{false};
+
+    int cam_sum{}, now_show_num{};
+    //相机配置结构体向量
+    vector<CAMERA_CONFIG_STRUCT> camera_config_struct_vector;
+
+private: // Todo ----------------------------------------  私有变量  -----------------------------------------------------
+
+    bool is_run{false};
+
+    int run_mode{}, save_mode{}, save_type{};
+    // 剔除状态
+    int control_rejector;
+    // 图像显示控制数组: 0关闭 1原图 2灰度图
+    int label_main_control_array[6]{1, 0, 0, 0, 0, 0};
+
+    string config_dir_path{}, system_config_file_path{}, camera_config_dir_path{};
+
+    char save_path[128], read_path[128], user_password[8], admin_password[8], product_type[64], product_list[256], control_port[8];
+
+    // 相机对象向量
+    vector<CMvCamera> camera_object_vector;
+
+    MV_CC_DEVICE_INFO_LIST device_info_list;
+
+    Ui::MainWindow *ui;
+
+private slots: // Todo -----------------------------------  槽函数  -----------------------------------------------------
+
+    // 变更当前相机
+    void changNowCamera(int cam_num);
+
+    // 重启程序
+    void restartDevice();
+
+    //  原图/灰度图
+    void changNowImage();
 
     //相机配置
     void Window_CameraConfig();
 
-    //重启程序
-    void restartDevice();
-
-    // 原图/灰度图
-    void changNowImage();
-
-    //开始或停止运行
+    // 开始或停止运行
     void startOrStopRun();
 
-    //关闭设备
+    // 退出:关闭设备
     void closeDevice();
-
-    //变更当前相机
-    void changNowCamera(int cam_num);
 
     void test();
 
-public:
-    MV_CC_DEVICE_INFO_LIST device_info;
-    int ret{}, cam_sum{};
+public: // Todo -----------------------------------------  公有函数  -----------------------------------------------------
 
-    //线程向label_main传图的控制列表:1原图 2灰度图 0关闭
-    int label_main_control_array[6]{1, 0, 0, 0, 0, 0};
+    explicit Main(QWidget *parent = nullptr);
 
-    bool is_run{false};
+    ~Main() override;
 
-    //****************************************读取系统配置文件 ************************************************************
-    int now_show_num{0};
-    string config_path{""};
-    string system_config_path;
-    string camera_config_dir;
-    //    int system_config_obj;
-    int run_mode;
-    int save_mode;
-    int save_type;
-    char save_path[128];
-    char read_path[128];
-    char user_password[8];
-    char admin_password[8];
-    char product_type[64];
-    char product_list[256];
-    int control_rejector;
-    char control_port[8];
-
-    //******************************************读取相机配置文件***********************************************************
-
-    //相机配置参数Vector
-    vector<CONFIG_FILE_LIST> camera_config_vector;
-
-
-    //获取相机路径Vector
-    int getConfigPathVector();
+private: // Todo -----------------------------------------  私有函数  ----------------------------------------------------
 
     //获取相机对象Vector
-    vector<CONFIG_FILE_LIST> getConfigObjVector();
+    void getCameraConfigParamStructToVector();
 
     //显示当前编号的 参数列表
     void showNowCameraArgslist();
@@ -97,11 +99,6 @@ public:
     //从缓存显示
     void displayFromCache();
 
-    //******************************************************************************************************************
-
-    vector<CMvCamera> camera_obj_vector;
-
-
     // 禁用单选按钮
     void enabledRadioButton();
 
@@ -111,50 +108,44 @@ public:
     // 显示与隐藏相机单选按钮: 按相机个数
     void hideRadioButton();
 
-    // 检查密码的函数, 密码正确返回True
-    bool confirmPassword(string utype = "user", string info = "权限验证");
-
-    // ################################################################################################
+    // 开始运行
     void startRun();
 
+    // 停止运行
     void stopRun();
 
-    //获取相机数量
+    // 获取相机数量
     int getCameraSum();
 
+    // 获取相机对象Vector
+    void getCameraObjectToVector();
 
-    //获取相机对象Vector
-    vector<CMvCamera> getCameraObjVector();
-
-
-    //打开所有相机
+    // 打开所有相机
     void openAllCamera();
 
-    //循环开始取流
+    // 循环开始取流
     void startAllGrabbing();
 
-    //停止所有相机抓图
+    // 停止所有相机抓图
     void stopAllGrabbing();
 
-    //关闭所有相机
+    // 关闭所有相机
     void closeAllCamera();
 
-    void getSystemParameter();
+    // 获取系统参数
+    void getSystemParam();
 
+    // 读取相机配置
     void getCameraConfigInfo();
 
+    // 定义变量
     void defineVariable();
 
+    // 初始化变量
     void initializeVariable();
 
+    // 初始化设置
     void initializeSetting();
-
-    explicit Main(QWidget *parent = nullptr);
-
-    ~Main() override;
-
-private:
-    Ui::MainWindow *ui;
 
     void __DirectlyRestart();
 
@@ -163,6 +154,9 @@ private:
     void saveConfig();
 
     void updateCsv();
+
+    // 检查密码的函数, 密码正确返回True
+    bool confirmPassword(string utype = "user", string info = "权限验证");
 };
 
 #endif

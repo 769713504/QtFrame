@@ -12,10 +12,6 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class CameraConfig; }
 QT_END_NAMESPACE
 
-
-
-
-
 class CameraConfig : public QDialog {
 Q_OBJECT
 
@@ -29,10 +25,10 @@ public slots:
     // 复选
     void disableComboBox();
 
-    // 保存参数
+    // 保存设置
     void saveSet();
 
-    // 取消操作
+    // 取消设置
     void cancelSet();
 
 private:
@@ -42,6 +38,9 @@ private:
     void setComboBox();
 
     void getNowCamArgs();
+
+
+    void setCamConfigArgs();
 };
 
 #endif //QTFRAME_CAMERACONFIG_H

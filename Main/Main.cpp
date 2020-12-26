@@ -21,32 +21,28 @@ Main::~Main() {
 
 // 构造函数
 Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
-    //引入GUI
+    // 引入GUI
     ui->setupUi(this);
-    //设置系统配置路径
-    config_path = "./File_Config/";
-    //枚举设备: 获取相机数量(从设备信息中)
+    // 设置系统配置路径
+    config_dir_path = "./File_Config/";
+    // 枚举设备: 获取相机数量(从设备信息中)
     cam_sum = getCameraSum();
-    //读取系统参数
-    getSystemParameter();
-    //读取相机配置
+    // 读取系统参数
+    getSystemParam();
+    // 读取相机配置
     getCameraConfigInfo();
-    //定义变量
+    // 定义变量
     defineVariable();
-    //从方法初始化变量
+    // 从方法初始化变量
     initializeVariable();
-    //初始化设置
+    // 初始化设置
     initializeSetting();
 
 
-
-    //获取设备容器
-    camera_obj_vector = getCameraObjVector();
-    //打开设备
+    // 获取相机对象-->camera_object_vector
+    getCameraObjectToVector();
+    // 打开设备
     openAllCamera();
-
-
-
 
     // 单选按钮
     connect(ui->radioButton_0, &QPushButton::clicked, [=] { changNowCamera(0); });
@@ -58,37 +54,36 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     // 普通按钮
     connect(ui->pushButton_00, SIGNAL(clicked()), SLOT(restartDevice()));                       // 重启程序
     connect(ui->pushButton_01, SIGNAL(clicked()), SLOT(changNowImage()));                       // 原始图像/灰度图
-    connect(ui->pushButton_02, SIGNAL(clicked()), SLOT(Window_CameraConfig()));                 // 启动/停止运行
+    connect(ui->pushButton_02, SIGNAL(clicked()), SLOT(Window_CameraConfig()));                 // 相机配置
 
     connect(ui->pushButton_05, SIGNAL(clicked()), SLOT(startOrStopRun()));                      // 启动/停止运行
     connect(ui->pushButton_10, SIGNAL(clicked()), SLOT(closeDevice()));                         // 退出:关闭程序
-    connect(ui->pushButton_09, SIGNAL(clicked()), SLOT(test()));                                // 退出:关闭程序
+    connect(ui->pushButton_09, SIGNAL(clicked()), SLOT(test()));                                // 更换产品
 }
 
-//Todo 已完成功能 ######################################################################################################
+// Todo 已完成功能 ######################################################################################################
 
 
-//子窗口-->相机配置
+// 子窗口-->相机配置
 void Main::Window_CameraConfig() {
-    //拦截无相机
+    // 拦截无相机
     if (cam_sum == 0) {
         QMessageBox::about(this, "无相机", "未检测到相机,该项不能设置!");
         return;
     }
-    //权限验证
+    // 权限验证
     if (!confirmPassword("user", "相机配置"))
         return;
     CameraConfig camera_config_window(this);
     camera_config_window.exec();
 }
 
-//重启程序
+// 重启程序
 void Main::restartDevice() {
 
     __DirectlyRestart();
 
 }
-
 
 // 彩图/灰度图
 void Main::changNowImage() {
@@ -103,32 +98,32 @@ void Main::changNowImage() {
     // displayFromCache()
 }
 
-//变更当前相机:param cam_num:相机编号
+// 变更当前相机:param cam_num:相机编号
 void Main::changNowCamera(int cam_num) {
     if (!cam_sum || cam_num == now_show_num) {
         return;
     }
     now_show_num = cam_num;
-    //显示当前编号的 参数列表
+    // 显示当前编号的 参数列表
     showNowCameraArgslist();
-    //显示当前编号的图像
+    // 显示当前编号的图像
     showImageToMainLabelByRadioButtonControl();
-    //从缓存显示
+    // 从缓存显示
     displayFromCache();
     //    显示训练模式下的矩形区域
     //    label_main.updateRect(*(self.train_coordinates_list[self.now_show_num]))
 }
 
-//显示当前相机的参数列表 todo
+// 显示当前相机的参数列表 todo
 void Main::showNowCameraArgslist() {
-    ///**/
+    // /**/
     //    for (int cam_num ; cam_num<cam_sum;cam_num++){
     //        if (cam_num=now_show_num) {
     //            cout << '参数列表%s   显示' % i << endl;
-    //
+    // 
     //        }
-    //
-    //
+    // 
+    // 
     //    }
     //    for i, args_list_obj in enumerate(self.args_list_obj_list):
     //    if i == self.now_show_num:
@@ -139,37 +134,36 @@ void Main::showNowCameraArgslist() {
 
 }
 
-
-//点击相机单选按钮,显示图片到主标签(通过开关控制)
+// 点击相机单选按钮,显示图片到主标签(通过开关控制)
 void Main::showImageToMainLabelByRadioButtonControl() {
-    //置空
+    // 置空
     for (int i = 0; i < cam_sum; i++)
         label_main_control_array[i] = 0;
-    //写入
+    // 写入
     if (ui->pushButton_01->isChecked())
         label_main_control_array[now_show_num] = 2;
     else
         label_main_control_array[now_show_num] = 1;
 }
 
-//从缓存显示 todo
+// 从缓存显示 todo
 void Main::displayFromCache() {
 
 
 }
 
-//运行或停止
+// 运行或停止
 void Main::closeDevice() {/**/
     /**/
-    //权限验证
+    // 权限验证
 
-    //关闭所有相机
+    // 关闭所有相机
     closeAllCamera();
     //    exit(0);
 
 }
 
-//运行或停止
+// 运行或停止
 void Main::startOrStopRun() {
 
     if (!cam_sum) {
@@ -192,83 +186,81 @@ void Main::startOrStopRun() {
     //        self.updateCsv()
 }
 
-//运行
+// 运行
 void Main::startRun() {
     if (!is_run) {
         startAllGrabbing();
     }
 }
 
-//停止
+// 停止
 void Main::stopRun() {
     if (is_run) {
         stopAllGrabbing();
     }
 }
 
-//获取相机数量
+// 获取相机数量
 int Main::getCameraSum() {
-    if (0 == CMvCamera::EnumDevices(MV_GIGE_DEVICE | MV_USB_DEVICE, &device_info)) {
-        return device_info.nDeviceNum;
+    if (0 == CMvCamera::EnumDevices(MV_GIGE_DEVICE | MV_USB_DEVICE, &device_info_list)) {
+        return device_info_list.nDeviceNum;
     }
     return 0;
 }
 
-//获取相机对象Vector
-vector<CMvCamera> Main::getCameraObjVector() {
-    vector<CMvCamera> _camera_obj_vector;
+// 获取相机对象Vector
+void Main::getCameraObjectToVector() {
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        CAMERA_PARAMS_LIST camera_params_list{cam_num, &device_info, ui->label_main, label_main_control_array};
-        //创建相机对象
+        CAMERA_PARAMS_LIST camera_params_list{cam_num, &device_info_list, ui->label_main, label_main_control_array};
+        // 创建相机对象
         CMvCamera camera_obj(&camera_params_list);
-        _camera_obj_vector.push_back(camera_obj);
+        camera_object_vector.push_back(camera_obj);
     }
-    return _camera_obj_vector;
 }
 
-//打开所有相机
+// 打开所有相机
 void Main::openAllCamera() {
 
     printf("Open camera:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        camera_obj_vector.at(cam_num).Open();
+        camera_object_vector.at(cam_num).Open();
     }
 }
 
-//全部开始抓取
+// 全部开始抓取
 void Main::startAllGrabbing() {
 
     printf("Start grabbing\n: ");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        camera_obj_vector.at(cam_num).StartGrabbing();
+        camera_object_vector.at(cam_num).StartGrabbing();
     }
 }
 
-//停止所有抓取
+// 停止所有抓取
 void Main::stopAllGrabbing() {
     printf("Stop grabbing:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        camera_obj_vector.at(cam_num).StopGrabbing();
+        camera_object_vector.at(cam_num).StopGrabbing();
     }
 }
 
-//关闭所有相机
+// 关闭所有相机
 void Main::closeAllCamera() {
     printf("Close camera:\n");
     for (int cam_num = 0; cam_num < cam_sum; cam_num++) {
-        camera_obj_vector.at(cam_num).Close();
+        camera_object_vector.at(cam_num).Close();
     }
 }
 
 // Todo #############################################################################################################
 
 // 读取系统参数
-void Main::getSystemParameter() {
+void Main::getSystemParam() {
 
-    system_config_path = config_path + "config.ini";
+    system_config_file_path = config_dir_path + "config.ini";
 
     char *lpPath = new char[128];
-    strcpy(lpPath, system_config_path.data());
+    strcpy(lpPath, system_config_file_path.data());
 
     run_mode = GetPrivateProfileInt("run", "mode", -66, lpPath);
     save_mode = GetPrivateProfileInt("save", "mode", -66, lpPath);
@@ -289,23 +281,21 @@ void Main::getSystemParameter() {
     delete[] lpPath;
 }
 
-//读取相机配置
+// 读取相机配置
 void Main::getCameraConfigInfo() {
-    camera_config_dir = config_path + product_type + "/";
-    //获取相机配置对象Vector
-    camera_config_vector = getConfigObjVector();
+    camera_config_dir_path = config_dir_path + product_type + "/";
+    // 获取相机配置参数结构体到-->camera_config_struct_vector
+    getCameraConfigParamStructToVector();
 }
 
-//获取相机对象Vector
-vector<CONFIG_FILE_LIST> Main::getConfigObjVector() {
+// 获取相机配置参数结构体到Vector
+void Main::getCameraConfigParamStructToVector() {
 
-    vector<CONFIG_FILE_LIST> _camera_config_vector;
-    printf("+++++++++++++++++++++++++++++++++%d+++++++++++++++++++++++++++\n", cam_sum);
     char *lpPath = new char[128];
     int exposure_time, image_gain, frame_rate, train[4];
 
     for (int i = 0; i < cam_sum; i++) {
-        string camera_config_path = camera_config_dir + "camera" + to_string(i) + ".ini";
+        string camera_config_path = camera_config_dir_path + "camera" + to_string(i) + ".ini";
         strcpy(lpPath, camera_config_path.data());
 
         exposure_time = GetPrivateProfileInt("camera", "exposure_time", -66, lpPath);
@@ -316,41 +306,33 @@ vector<CONFIG_FILE_LIST> Main::getConfigObjVector() {
         train[2] = GetPrivateProfileInt("train", "y1", -66, lpPath);
         train[3] = GetPrivateProfileInt("train", "y2", -66, lpPath);
 
-        //todo 参数未添加
+        // todo 参数未添加
 
-        CONFIG_FILE_LIST camera_config_list{exposure_time, image_gain, frame_rate, train};
-        _camera_config_vector.push_back(camera_config_list);
-
+        CAMERA_CONFIG_STRUCT camera_config_list{exposure_time, image_gain, frame_rate, train};
+        camera_config_struct_vector.push_back(camera_config_list);
     }
-    return _camera_config_vector;
 }
 
-//获取相机路径Vector
-int Main::getConfigPathVector() {
-
-}
-
-
-//定义变量
+// 定义变量
 void Main::defineVariable() {
 
 }
 
-//初始化变量
+// 初始化变量
 void Main::initializeVariable() {
 
 }
 
-//初始化设置
+// 初始化设置
 void Main::initializeSetting() {
 
 
 }
 
-//直接重启: 内部调用
+// 直接重启: 内部调用
 void Main::__DirectlyRestart() {
     __ReadyQuit();
-    //返回重启编号
+    // 返回重启编号
     QApplication::exit(6);
 }
 
@@ -373,10 +355,10 @@ void Main::saveConfig() {
 }
 
 void Main::updateCsv() {
-    //todo
+    // todo
 }
 
-//检查密码的函数, 密码正确返回True
+// 检查密码的函数, 密码正确返回True
 bool Main::confirmPassword(string utype, string info) {
 
     bool ok;
