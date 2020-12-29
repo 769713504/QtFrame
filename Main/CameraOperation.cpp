@@ -260,14 +260,20 @@ int CMvCamera::GetIntValue(IN const char *strKey, OUT MVCC_INTVALUE_EX *pIntValu
 }
 
 
+// 设置参数
+int CMvCamera::setParameter(float frameRate, float exposureTime, float gain) {
 
+    if (CMvCamera::SetFloatValue("AcquisitionFrameRate", frameRate)) {
+        printf("设置帧率失败! %d\n", frameRate);
+    } else if (CMvCamera::SetFloatValue("ExposureTime", exposureTime)) {
+        printf("设置曝光时间失败! %d\n", exposureTime);
+    } else if (CMvCamera::SetFloatValue("Gain", gain)) {
+        printf("设置增益失败! %d\n", gain);
+    } else {
+        printf("相机%d 参数设置成功~\n", cam_num);
+    }
 
-
-
-
-
-
-
+}
 
 
 
@@ -390,7 +396,7 @@ int CMvCamera::CommandExecute(IN const char *strKey) {
     return MV_CC_SetCommandValue(m_hDevHandle, strKey);
 }
 
-//探测网络最佳包大小(只对GigE相机有效) 
+//探测网络最佳包大小(只对GigE相机有效)
 int CMvCamera::GetOptimalPacketSize(unsigned int *pOptimalPacketSize) {
     if (MV_NULL == pOptimalPacketSize) {
         return MV_E_PARAMETER;
@@ -411,24 +417,24 @@ int CMvCamera::RegisterExceptionCallBack(void(__stdcall *cbException)(unsigned i
     return MV_CC_RegisterExceptionCallBack(m_hDevHandle, cbException, pUser);
 }
 
-//注册单个事件回调 
+//注册单个事件回调
 int CMvCamera::RegisterEventCallBack(const char *pEventName,
                                      void(__stdcall *cbEvent)(MV_EVENT_OUT_INFO *pEventInfo, void *pUser),
                                      void *pUser) {
     return MV_CC_RegisterEventCallBackEx(m_hDevHandle, pEventName, cbEvent, pUser);
 }
 
-//强制IP 
+//强制IP
 int CMvCamera::ForceIp(unsigned int nIP, unsigned int nSubNetMask, unsigned int nDefaultGateWay) {
     return MV_GIGE_ForceIpEx(m_hDevHandle, nIP, nSubNetMask, nDefaultGateWay);
 }
 
-//配置IP方式 
+//配置IP方式
 int CMvCamera::SetIpConfig(unsigned int nType) {
     return MV_GIGE_SetIpConfig(m_hDevHandle, nType);
 }
 
-//设置网络传输模式 
+//设置网络传输模式
 int CMvCamera::SetNetTransMode(unsigned int nType) {
     return MV_GIGE_SetNetTransMode(m_hDevHandle, nType);
 }
@@ -439,7 +445,7 @@ int CMvCamera::SaveImage(MV_SAVE_IMAGE_PARAM_EX *pstParam) {
     return MV_CC_SaveImageEx2(m_hDevHandle, pstParam);
 }
 
-//保存图片为文件 
+//保存图片为文件
 int CMvCamera::SaveImageToFile(MV_SAVE_IMG_TO_FILE_PARAM *pstSaveFileParam) {
     return MV_CC_SaveImageToFile(m_hDevHandle, pstSaveFileParam);
 }

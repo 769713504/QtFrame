@@ -30,6 +30,8 @@ aux_source_directory(./ SRC_LIST)
 aux_source_directory(./Main SRC_LIST)
 #查找./Child_CameraConfig下的所有源文件 -->添加到SRC_LIST
 aux_source_directory(./Child_CameraConfig SRC_LIST)
+aux_source_directory(./Child_SystemConfig SRC_LIST)
+aux_source_directory(./CV SRC_LIST)
 
 
 #生成可执行文件(ExecutableName SourceFileList)

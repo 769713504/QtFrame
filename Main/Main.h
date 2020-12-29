@@ -1,22 +1,32 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <iostream>
+#include <map>
+
 #include <QMainWindow>
+#include <QtWidgets/QGroupBox>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QSpinBox>
+
 #include <ui_mainwindow.h>
-#include "iostream"
 #include  "CameraOperation.h"
+#include  "DetectionBase.h"
+
+using namespace std;
 
 namespace Ui {
     class MainWindow;
 }
-
-using namespace std;
 
 
 // Todo ------------------------------------------------  结构体定义  ----------------------------------------------------
 
 //相机配置结构体
 struct CAMERA_CONFIG_STRUCT {
+    QString config_path;
+
     int exposure_time;
     int image_gain;
     int frame_rate;
@@ -30,37 +40,61 @@ Q_OBJECT
 public: // Todo -----------------------------------------  公有变量  -----------------------------------------------------
 
     //子窗口调用: 是否更改参数
-    bool is_change_param{false};
+    bool is_change_param{false}, is_Rejector{false};
 
     int cam_sum{}, now_show_num{};
     //相机配置结构体向量
     vector<CAMERA_CONFIG_STRUCT> camera_config_struct_vector;
+    //视觉检测对象向量
+    vector<DetectionBase *> visual_detection_object_vector;
+    //所有相机 参数列表容器 的容器
+    vector<vector<QSpinBox *> > allCamera_spinBoxVector_Vector;
+
+    map<int, QString> *error_type_dict;
+
+    map<QString, int> *params_dict;
+
+    QString config_dir_path, system_config_file_path, camera_config_dir_path;
+    //将要转 int
+    QString run_mode, save_mode, save_type, save_path, read_path, control_rejector, control_port, simulate_camnum;
+    //配置文件参数
+    QString user_password, admin_password, product_title, product_list, product_type;
 
 private: // Todo ----------------------------------------  私有变量  -----------------------------------------------------
-
     bool is_run{false};
 
-    int run_mode{}, save_mode{}, save_type{};
-    // 剔除状态
-    int control_rejector;
+
     // 图像显示控制数组: 0关闭 1原图 2灰度图
     int label_main_control_array[6]{1, 0, 0, 0, 0, 0};
 
-    string config_dir_path{}, system_config_file_path{}, camera_config_dir_path{};
-
-    char save_path[128], read_path[128], user_password[8], admin_password[8], product_type[64], product_list[256], control_port[8];
 
     // 相机对象向量
     vector<CMvCamera> camera_object_vector;
+    // 参数列表向量
+    vector<QGroupBox *> param_list_vector;
 
+    //设备信息结构体
     MV_CC_DEVICE_INFO_LIST device_info_list;
 
     Ui::MainWindow *ui;
 
 private slots: // Todo -----------------------------------  槽函数  -----------------------------------------------------
 
+    void Window_ExceptionImage();
+
+    void errorStop();
+
+    void trainingMode();
+
+    void rejectorSwitch();
+
+    void monitorSwitch();
+
+    // 改变参数字典
+    void changeArgsDict(int cam_num = 0);
+
     // 变更当前相机
-    void changNowCamera(int cam_num);
+    void changNowCamera(int cam_num = 0);
 
     // 重启程序
     void restartDevice();
@@ -70,6 +104,12 @@ private slots: // Todo -----------------------------------  槽函数  ---------
 
     //相机配置
     void Window_CameraConfig();
+
+    // 系统配置
+    void Window_SystemConfig();
+
+    // 保存模式
+    void Window_SaveMode();
 
     // 开始或停止运行
     void startOrStopRun();
@@ -87,8 +127,11 @@ public: // Todo -----------------------------------------  公有函数  -------
 
 private: // Todo -----------------------------------------  私有函数  ----------------------------------------------------
 
-    //获取相机对象Vector
-    void getCameraConfigParamStructToVector();
+    //重写关闭事件
+    void closeEvent(QCloseEvent *event);
+
+    //重写按键事件
+    void keyPressEvent(QKeyEvent *event);
 
     //显示当前编号的 参数列表
     void showNowCameraArgslist();
@@ -133,10 +176,10 @@ private: // Todo -----------------------------------------  私有函数  ------
     void closeAllCamera();
 
     // 获取系统参数
-    void getSystemParam();
+    void readSystemParam();
 
     // 读取相机配置
-    void getCameraConfigInfo();
+    void readCameraConfig_ToParamStructVector();
 
     // 定义变量
     void defineVariable();
@@ -157,6 +200,32 @@ private: // Todo -----------------------------------------  私有函数  ------
 
     // 检查密码的函数, 密码正确返回True
     bool confirmPassword(string utype = "user", string info = "权限验证");
+
+    void writeSystemConfig();
+
+    void writeCameraConfig_FromParamStructVector();
+
+    void deleteExceptionDirectory();
+
+    void allCameraTriggerOnce(int num);
+
+    void setAllCameraParam();
+
+    void getArgsListObjList();
+
+    void createArgsListDict();
+
+    void createExceptionDirectory();
+
+    void updateAllCoordinates();
+
+    void startUpdataCsv();
+
+    void setRejectorButton();
+
+    void getVisualDetectionObjectVector();
+
+
 };
 
 #endif

@@ -195,7 +195,8 @@ public:
 private:
 
     void *m_hDevHandle;
-
+public:
+    int setParameter(float frameRate, float exposureTime, float gain);
 };
 
 #endif//QTFRAME_CAMERAOPERATION_H

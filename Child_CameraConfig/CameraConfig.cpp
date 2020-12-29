@@ -75,8 +75,8 @@ void CameraConfig::getNowCamArgs() {
 void CameraConfig::setCamConfigArgs() {
     // 获取参数
     int exposuretime = ui->spinBox_1->value();          // 曝光时间
-    int framerate = ui->spinBox_1->value();             // 帧率
-    int gain = ui->spinBox_1->value();                  // 图像增益
+    int framerate = ui->spinBox_2->value();             // 帧率
+    int gain = ui->spinBox_3->value();                  // 图像增益
     // 判断复选框状态
     if (ui->checkBox_0->isChecked()) {
         for (int i = 0; i < main_window->cam_sum; i++) {

@@ -1,6 +1,3 @@
-//
-// Created by xin on 2020/12/25.
-//
 
 #ifndef QTFRAME_CAMERACONFIG_H
 #define QTFRAME_CAMERACONFIG_H

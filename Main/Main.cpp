@@ -1,7 +1,10 @@
 #include <QMessageBox>
 #include <QInputDialog>
-#include   "Main.h"
-#include   "Child_CameraConfig/CameraConfig.h"
+#include <QSettings>
+#include "Main.h"
+#include "Child_CameraConfig/CameraConfig.h"
+#include "Child_SystemConfig/SystemConfig.h"
+#include "CV/SetCameraMap.h"
 
 void Main::test() {
 
@@ -23,26 +26,22 @@ Main::~Main() {
 Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     // 引入GUI
     ui->setupUi(this);
+
     // 设置系统配置路径
     config_dir_path = "./File_Config/";
     // 枚举设备: 获取相机数量(从设备信息中)
     cam_sum = getCameraSum();
     // 读取系统参数
-    getSystemParam();
+    readSystemParam();
     // 读取相机配置
-    getCameraConfigInfo();
+    readCameraConfig_ToParamStructVector();
+
     // 定义变量
     defineVariable();
     // 从方法初始化变量
     initializeVariable();
     // 初始化设置
     initializeSetting();
-
-
-    // 获取相机对象-->camera_object_vector
-    getCameraObjectToVector();
-    // 打开设备
-    openAllCamera();
 
     // 单选按钮
     connect(ui->radioButton_0, &QPushButton::clicked, [=] { changNowCamera(0); });
@@ -52,17 +51,43 @@ Main::Main(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     connect(ui->radioButton_4, &QPushButton::clicked, [=] { changNowCamera(4); });
     connect(ui->radioButton_5, &QPushButton::clicked, [=] { changNowCamera(5); });
     // 普通按钮
-    connect(ui->pushButton_00, SIGNAL(clicked()), SLOT(restartDevice()));                       // 重启程序
-    connect(ui->pushButton_01, SIGNAL(clicked()), SLOT(changNowImage()));                       // 原始图像/灰度图
-    connect(ui->pushButton_02, SIGNAL(clicked()), SLOT(Window_CameraConfig()));                 // 相机配置
-
-    connect(ui->pushButton_05, SIGNAL(clicked()), SLOT(startOrStopRun()));                      // 启动/停止运行
-    connect(ui->pushButton_10, SIGNAL(clicked()), SLOT(closeDevice()));                         // 退出:关闭程序
-    connect(ui->pushButton_09, SIGNAL(clicked()), SLOT(test()));                                // 更换产品
+    connect(ui->pushButton_00, SIGNAL(clicked()), SLOT(restartDevice()));                   // 重启程序
+    connect(ui->pushButton_01, SIGNAL(clicked()), SLOT(changNowImage()));                   // 原始图像/灰度图
+    connect(ui->pushButton_02, SIGNAL(clicked()), SLOT(Window_CameraConfig()));             // 相机配置
+    connect(ui->pushButton_03, SIGNAL(clicked()), SLOT(Window_ExceptionImage()));           // 异常图像
+    connect(ui->pushButton_04, SIGNAL(clicked()), SLOT(errorStop()));                       // 出错暂停
+    connect(ui->pushButton_05, SIGNAL(clicked()), SLOT(startOrStopRun()));                  // 启动/停止运行
+    connect(ui->pushButton_06, SIGNAL(clicked()), SLOT(trainingMode()));                    // 训练模式
+    connect(ui->pushButton_07, SIGNAL(clicked()), SLOT(rejectorSwitch()));                  // 剔除开关
+    connect(ui->pushButton_08, SIGNAL(clicked()), SLOT(monitorSwitch()));                   // 监视状态
+    connect(ui->pushButton_09, SIGNAL(clicked()), SLOT(test()));                            // 更换产品
+    connect(ui->pushButton_10, SIGNAL(clicked()), SLOT(closeDevice()));                     // 退出:关闭程序
+    // 菜单按钮
+    connect(ui->action_01, SIGNAL(triggered()), this, SLOT(Window_SystemConfig()));  // ---->系统配置
+    connect(ui->action_02, SIGNAL(triggered()), this, SLOT(Window_SaveMode()));      // ---->保存模式
 }
 
 // Todo 已完成功能 ######################################################################################################
 
+// 子窗口-->保存模式
+void Main::Window_SaveMode() {
+}
+
+// 子窗口-->系统配置
+void Main::Window_SystemConfig() {
+    // 权限验证
+    if (!confirmPassword("admin", "系统配置")) return;
+    //显示窗口
+    SystemConfig system_config_window(this);
+    if (!system_config_window.exec()) {
+        if (is_change_param) {
+            if (QMessageBox::warning(this, "重启", "系统参数已更改! 重启生效\n是否重启?", QMessageBox::Yes | QMessageBox::No) ==
+                QMessageBox::Yes) {
+                __DirectlyRestart();
+            }
+        }
+    }
+}
 
 // 子窗口-->相机配置
 void Main::Window_CameraConfig() {
@@ -72,18 +97,20 @@ void Main::Window_CameraConfig() {
         return;
     }
     // 权限验证
-    if (!confirmPassword("user", "相机配置"))
-        return;
+    if (!confirmPassword("user", "相机配置")) return;
+
+    //显示窗口
     CameraConfig camera_config_window(this);
-    camera_config_window.exec();
+    if (!camera_config_window.exec()) {
+        if (is_change_param) {
+            if (QMessageBox::warning(this, "重启", "相机参数已更改! 重启生效\n是否重启?", QMessageBox::Yes | QMessageBox::No) ==
+                QMessageBox::Yes) {
+                __DirectlyRestart();
+            }
+        }
+    }
 }
 
-// 重启程序
-void Main::restartDevice() {
-
-    __DirectlyRestart();
-
-}
 
 // 彩图/灰度图
 void Main::changNowImage() {
@@ -100,9 +127,8 @@ void Main::changNowImage() {
 
 // 变更当前相机:param cam_num:相机编号
 void Main::changNowCamera(int cam_num) {
-    if (!cam_sum || cam_num == now_show_num) {
-        return;
-    }
+    if (!cam_sum) { return; }
+
     now_show_num = cam_num;
     // 显示当前编号的 参数列表
     showNowCameraArgslist();
@@ -111,27 +137,19 @@ void Main::changNowCamera(int cam_num) {
     // 从缓存显示
     displayFromCache();
     //    显示训练模式下的矩形区域
-    //    label_main.updateRect(*(self.train_coordinates_list[self.now_show_num]))
+    //    label_main.updateRect(*(self.train_coordinates_list[self.now_show_num])) todo
 }
 
-// 显示当前相机的参数列表 todo
+// 显示当前相机的参数列表
 void Main::showNowCameraArgslist() {
-    // /**/
-    //    for (int cam_num ; cam_num<cam_sum;cam_num++){
-    //        if (cam_num=now_show_num) {
-    //            cout << '参数列表%s   显示' % i << endl;
-    // 
-    //        }
-    // 
-    // 
-    //    }
-    //    for i, args_list_obj in enumerate(self.args_list_obj_list):
-    //    if i == self.now_show_num:
-    //    print('参数列表%s   显示' % i)
-    //    args_list_obj.setVisible(True)
-    //    else:
-    //    args_list_obj.setVisible(False)
-
+    for (int i = 0; i < cam_sum; i++) {
+        if (i == now_show_num) {
+            printf("Show param list %d \n", i);
+            param_list_vector.at(i)->setVisible(true);
+        } else {
+            param_list_vector.at(i)->setVisible(false);
+        }
+    }
 }
 
 // 点击相机单选按钮,显示图片到主标签(通过开关控制)
@@ -152,15 +170,46 @@ void Main::displayFromCache() {
 
 }
 
-// 运行或停止
+// 重启程序
+void Main::restartDevice() {
+    if (!confirmPassword("user", "重启程序")) { return; }
+
+    __DirectlyRestart();
+}
+
+// 退出程序
 void Main::closeDevice() {/**/
-    /**/
-    // 权限验证
+    if (!confirmPassword("user", "退出程序")) { return; }
+    __ReadyQuit();
+    // 删除缓存目录
+    deleteExceptionDirectory();
+    QApplication::exit(0);
 
-    // 关闭所有相机
-    closeAllCamera();
-    //    exit(0);
+}
 
+void Main::closeEvent(QCloseEvent *event) {
+
+    if (!confirmPassword("user", "关闭")) {
+        event->ignore();
+    } else {
+        __ReadyQuit();
+        // 删除缓存目录
+        deleteExceptionDirectory();
+        event->accept();
+    }
+}
+
+// 重写按键事件
+void Main::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Escape) {
+        closeDevice();
+    } else if (event->key() == Qt::Key_F12) {
+        // 若"模拟运行"按钮未选中
+        if (ui->checkBox->isChecked()) {
+            // 触发一次
+            allCameraTriggerOnce(-1);
+        }
+    }
 }
 
 // 运行或停止
@@ -255,63 +304,92 @@ void Main::closeAllCamera() {
 // Todo #############################################################################################################
 
 // 读取系统参数
-void Main::getSystemParam() {
-
+void Main::readSystemParam() {
     system_config_file_path = config_dir_path + "config.ini";
 
-    char *lpPath = new char[128];
-    strcpy(lpPath, system_config_file_path.data());
+    QSettings configIniRead(system_config_file_path, QSettings::IniFormat);
 
-    run_mode = GetPrivateProfileInt("run", "mode", -66, lpPath);
-    save_mode = GetPrivateProfileInt("save", "mode", -66, lpPath);
-    save_type = GetPrivateProfileInt("save", "type", -66, lpPath);
+    run_mode = configIniRead.value("run/mode").toString();
+    save_mode = configIniRead.value("save/mode").toString();
+    save_type = configIniRead.value("save/type").toString();
+    save_path = configIniRead.value("save/path").toString();
+    read_path = configIniRead.value("read/path").toString();
+    control_rejector = configIniRead.value("control/rejector").toString();
+    control_port = configIniRead.value("control/port").toString();
+    simulate_camnum = configIniRead.value("simulate/camnum").toString();
+    user_password = configIniRead.value("password/user").toString();
+    admin_password = configIniRead.value("password/admin").toString();
+    product_title = configIniRead.value("product/title").toString();
+    product_list = configIniRead.value("product/list").toString();
+    product_type = configIniRead.value("product/type").toString();
 
-    GetPrivateProfileString("save", "path", "", save_path, 128, lpPath);
-    GetPrivateProfileString("read", "path", "", read_path, 128, lpPath);
+}
 
-    GetPrivateProfileString("password", "user", "", user_password, 16, lpPath);
-    GetPrivateProfileString("password", "admin", "", admin_password, 16, lpPath);
+// 写入系统参数
+void Main::writeSystemConfig() {
 
-    GetPrivateProfileString("product", "type", "", product_type, 128, lpPath);
-    GetPrivateProfileString("product", "list", "", product_list, 256, lpPath);
+    QSettings configIniRead(system_config_file_path, QSettings::IniFormat);
 
-    control_rejector = GetPrivateProfileInt("control", "rejector", -66, lpPath);
-    GetPrivateProfileString("control", "port", "", control_port, 8, lpPath);
-
-    delete[] lpPath;
+    configIniRead.setValue("run/mode", run_mode);
+    configIniRead.setValue("save/mode", save_mode);
+    configIniRead.setValue("save/type", save_type);
+    configIniRead.setValue("save/path", save_path);
+    configIniRead.setValue("read/path", read_path);
+    configIniRead.setValue("control/rejector", control_rejector);
+    configIniRead.setValue("control/port", control_port);
+    configIniRead.setValue("simulate/camnum", simulate_camnum);
+    configIniRead.setValue("password/user", user_password);
+    configIniRead.setValue("password/admin", admin_password);
+    configIniRead.setValue("product/title", product_title);
+    configIniRead.setValue("product/list", product_list);
+    configIniRead.setValue("product/type", product_type);
 }
 
 // 读取相机配置
-void Main::getCameraConfigInfo() {
+void Main::readCameraConfig_ToParamStructVector() {
+
     camera_config_dir_path = config_dir_path + product_type + "/";
-    // 获取相机配置参数结构体到-->camera_config_struct_vector
-    getCameraConfigParamStructToVector();
-}
 
-// 获取相机配置参数结构体到Vector
-void Main::getCameraConfigParamStructToVector() {
-
-    char *lpPath = new char[128];
     int exposure_time, image_gain, frame_rate, train[4];
+    QString camera_config_path;
 
     for (int i = 0; i < cam_sum; i++) {
-        string camera_config_path = camera_config_dir_path + "camera" + to_string(i) + ".ini";
-        strcpy(lpPath, camera_config_path.data());
+        camera_config_path = camera_config_dir_path + "camera" + QString::number(i) + ".ini";
+        QSettings configIniRead(camera_config_path, QSettings::IniFormat);
 
-        exposure_time = GetPrivateProfileInt("camera", "exposure_time", -66, lpPath);
-        image_gain = GetPrivateProfileInt("camera", "image_gain", -66, lpPath);
-        frame_rate = GetPrivateProfileInt("camera", "frame_rate", -66, lpPath);
-        train[0] = GetPrivateProfileInt("train", "x1", -66, lpPath);
-        train[1] = GetPrivateProfileInt("train", "x2", -66, lpPath);
-        train[2] = GetPrivateProfileInt("train", "y1", -66, lpPath);
-        train[3] = GetPrivateProfileInt("train", "y2", -66, lpPath);
+        exposure_time = configIniRead.value("camera/exposure_time").toInt();
+        image_gain = configIniRead.value("camera/image_gain").toInt();
+        frame_rate = configIniRead.value("camera/frame_rate").toInt();
+        train[0] = configIniRead.value("train/x1").toInt();
+        train[1] = configIniRead.value("train/y1").toInt();
+        train[2] = configIniRead.value("train/x2").toInt();
+        train[3] = configIniRead.value("train/y2").toInt();
+        // todo 未添加de参数
 
-        // todo 参数未添加
+        CAMERA_CONFIG_STRUCT camera_config_list{camera_config_path, exposure_time, image_gain, frame_rate, train};
 
-        CAMERA_CONFIG_STRUCT camera_config_list{exposure_time, image_gain, frame_rate, train};
         camera_config_struct_vector.push_back(camera_config_list);
     }
 }
+
+
+// 写入相机参数
+void Main::writeCameraConfig_FromParamStructVector() {
+
+    for (int i = 0; i < cam_sum; i++) {
+        QSettings configIniRead(camera_config_struct_vector.at(i).config_path, QSettings::IniFormat);
+
+        configIniRead.setValue("camera/exposure_time", camera_config_struct_vector.at(i).exposure_time);
+        configIniRead.setValue("camera/image_gain", camera_config_struct_vector.at(i).image_gain);
+        configIniRead.setValue("camera/frame_rate", camera_config_struct_vector.at(i).frame_rate);
+        configIniRead.setValue("train/x1", camera_config_struct_vector.at(i).train[0]);
+        configIniRead.setValue("train/y1", camera_config_struct_vector.at(i).train[1]);
+        configIniRead.setValue("train/x2", camera_config_struct_vector.at(i).train[2]);
+        configIniRead.setValue("train/y2", camera_config_struct_vector.at(i).train[3]);
+        // todo 未添加de参数
+    }
+}
+
 
 // 定义变量
 void Main::defineVariable() {
@@ -321,11 +399,56 @@ void Main::defineVariable() {
 // 初始化变量
 void Main::initializeVariable() {
 
+    // 异常图像存储路径
+    createExceptionDirectory();
+    // 传感器控制类对象
+    // self.sensor_control_obj = SensorSerialPortControl(self.control_port) todo
+    // 视觉检测对象向量
+    getVisualDetectionObjectVector();
+    // 获取 参数列表对象 列表
+    getArgsListObjList();
+    // 初始化参数列表: 向参数列表中添加参数
+    createArgsListDict();
+
+    // 所有相机配置文件中的坐标列表
+    // self.train_coordinates_list = self.getTrainCoordinatesList()
+    // 所有相机配置文件中 图像缩放比列表[[1.6,1.6],[x,y],...]
+    // self.train_zoom_ratio_list = self.getZoomRatioList()
+    // 初始化日表对象
+    // self.csv_path = self.getCsvPath()
+    // "批"时间ID
+    // self.batch_time_number = self.getTimeNumber()
+    // 相机操作对象列表(含虚拟)
+    // self.camera_operation_obj_list = self.getOperationObjList()
 }
 
 // 初始化设置
 void Main::initializeSetting() {
 
+    // 隐藏多余的单选按钮
+    hideRadioButton();
+    // 更改产品标签
+    // self.label_product.setText(self.product_type)  todo
+    // 监视状态
+    monitorSwitch();
+    // 初始化单选按钮
+    changNowCamera();
+    // 初始化所有相机坐标
+    updateAllCoordinates();
+    // 启动更新csv线程
+    startUpdataCsv();
+    // 设置剔除按钮
+    setRejectorButton();
+
+
+
+
+    // 获取相机对象-->camera_object_vector
+    getCameraObjectToVector();
+    // 打开相机
+    openAllCamera();
+    //设置相机参数
+    setAllCameraParam();
 
 }
 
@@ -349,8 +472,10 @@ void Main::__ReadyQuit() {
 
 }
 
+// 持久化参数到配置文件
 void Main::saveConfig() {
-    // todo
+    writeCameraConfig_FromParamStructVector();
+    writeSystemConfig();
 
 }
 
@@ -362,18 +487,14 @@ void Main::updateCsv() {
 bool Main::confirmPassword(string utype, string info) {
 
     bool ok;
-    string password, text;
+    QString password, text;
     if (utype == "admin") {
-        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入管理员密码~", QLineEdit::Password, "",
-                                     &ok).toStdString();
+        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入管理员密码~", QLineEdit::Password, "", &ok);
         password = admin_password;
-        cout << text << endl;
     } else {
-        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入用户密码~", QLineEdit::Password, "",
-                                     &ok).toStdString();
+        text = QInputDialog::getText(this, QString::fromStdString(info), "请输入用户密码~", QLineEdit::Password, "", &ok);
         password = user_password;
     }
-
     if (ok) {
         if (text == password) return true;
         else if (QMessageBox::warning(this, "密码错误", "密码应为1~6位字符!\\n是否重试?", QMessageBox::Yes | QMessageBox::No) ==
@@ -391,8 +512,6 @@ void Main::hideRadioButton() {
     if (cam_sum <= 3) { ui->radioButton_3->setVisible(false); } else { ui->radioButton_3->setVisible(true); }
     if (cam_sum <= 4) { ui->radioButton_4->setVisible(false); } else { ui->radioButton_4->setVisible(true); }
     if (cam_sum <= 5) { ui->radioButton_5->setVisible(false); } else { ui->radioButton_5->setVisible(true); }
-
-
 }
 
 // 禁用单选按钮
@@ -403,7 +522,6 @@ void Main::disabledRadioButton() {
     ui->radioButton_3->setEnabled(false);
     ui->radioButton_4->setEnabled(false);
     ui->radioButton_5->setEnabled(false);
-
 }
 
 // 启用单选按钮
@@ -414,4 +532,188 @@ void Main::enabledRadioButton() {
     ui->radioButton_3->setEnabled(true);
     ui->radioButton_4->setEnabled(true);
     ui->radioButton_5->setEnabled(true);
+}
+
+//删除缓存目录
+void Main::deleteExceptionDirectory() {
+    //todo
+}
+
+void Main::allCameraTriggerOnce(int num) {
+    //todo
+}
+
+// 设置所有相机参数
+void Main::setAllCameraParam() {
+    for (int i = 0; i < cam_sum; i++) {
+        camera_object_vector.at(i).setParameter(camera_config_struct_vector.at(i).frame_rate,
+                                                camera_config_struct_vector.at(i).exposure_time,
+                                                camera_config_struct_vector.at(i).image_gain);
+    }
+}
+
+//获取参数列表的对象向量
+void Main::getArgsListObjList() {
+
+    QGroupBox *groupBox;
+    string name_s;
+    char name_c[64];
+
+    for (int i = 0; i < cam_sum; i++) {
+        groupBox = new QGroupBox(ui->centralwidget);
+
+        groupBox->setGeometry(QRect(840, 90, 231, 631));
+        groupBox->setStyleSheet("background-color: rgb(255, 255, 255);\n");
+        groupBox->setAlignment(Qt::AlignCenter);
+        groupBox->setObjectName(QStringLiteral("groupBox"));
+
+        name_s = "参数列表" + to_string(1);
+        strcpy(name_c, name_s.c_str());
+
+        groupBox->setTitle(QApplication::translate("MainWindow", name_c, Q_NULLPTR));
+
+        // groupBox->raise();
+
+        param_list_vector.push_back(groupBox);
+    }
+}
+
+// 创建all_spinBox_list_dic参数列表  在参数列表中创建变量
+void Main::createArgsListDict() {
+    QLabel *label;
+    QSpinBox *spinBox;
+    vector<ParamsStruct> params_struct_vector;
+    // 便利相机
+    for (int i = 0; i < cam_sum; i++) {
+        //遍历参数
+        QGroupBox *groupBox = param_list_vector.at(i);
+        params_struct_vector = visual_detection_object_vector[i]->params_vector;
+
+        vector<QSpinBox *> spin_box_vector;
+
+        for (int j = 0; j < params_struct_vector.size(); j++) {
+            char name_c[64];
+            strcpy(name_c, params_struct_vector[j].name.c_str());
+
+            label = new QLabel(groupBox);
+            label->setObjectName(QStringLiteral("label"));
+            label->setGeometry(QRect(10, 40 * (j + 1), 120, 30));
+            label->setText(QApplication::translate("MainWindow", name_c, Q_NULLPTR));
+
+            spinBox = new QSpinBox(groupBox);
+            spinBox->setObjectName(QStringLiteral("spinBox"));
+            spinBox->setGeometry(QRect(130, 40 * (j + 1), 90, 30));
+            spinBox->setValue(params_struct_vector[j].value);
+
+            spin_box_vector.push_back(spinBox);
+
+            connect(spinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=] { changeArgsDict(i); });
+        }
+        allCamera_spinBoxVector_Vector.push_back(spin_box_vector);
+    }
+
+}
+
+// 异常图像存储路径
+void Main::createExceptionDirectory() {
+    //todo
+}
+
+// 监视状态
+void Main::monitorSwitch() {
+
+    if (ui->pushButton_08->isChecked()) {
+        if (!confirmPassword("user", "修改参数")) {
+            ui->pushButton_08->setChecked(false);
+            return;
+        }
+        ui->pushButton_08->setText("调整参数");
+        for (int i = 0; i < cam_sum; i++) {
+            param_list_vector.at(i)->setEnabled(true);
+        }
+    } else {
+        ui->pushButton_08->setText("监视状态");
+        for (int i = 0; i < cam_sum; i++) {
+            param_list_vector.at(i)->setEnabled(false);
+        }
+    }
+}
+
+// 初始化所有相机坐标
+void Main::updateAllCoordinates() {
+    // todo
+}
+
+// 启动更新csv线程
+void Main::startUpdataCsv() {
+    // todo
+}
+
+// 设置剔除按钮
+void Main::setRejectorButton() {
+    if (control_rejector.toInt() == 1) {
+        ui->pushButton_07->setText("剔除开");
+        ui->pushButton_07->setChecked(true);
+        is_Rejector = true;
+    } else {
+        ui->pushButton_07->setText("剔除关");
+        ui->pushButton_07->setChecked(false);
+        is_Rejector = false;
+    }
+}
+
+//获取视觉检测对象向量
+void Main::getVisualDetectionObjectVector() {
+    SetCameraMap cameramap;
+    for (int i = 0; i < cam_sum; i++) {
+        visual_detection_object_vector.push_back(cameramap.camera_dict[i]);
+    }
+}
+
+//改变参数列表
+void Main::changeArgsDict(int cam_num) {
+
+    vector<QSpinBox *> spinBoxVector = allCamera_spinBoxVector_Vector[cam_num];
+
+    int *value_p = new int[spinBoxVector.size()];
+    for (int i = 0; i < spinBoxVector.size(); i++)
+        value_p[i] = spinBoxVector[i]->value();
+
+    visual_detection_object_vector[cam_num]->updateArgs(value_p);
+    delete[] value_p;
+}
+
+
+void Main::Window_ExceptionImage() {
+
+}
+
+void Main::errorStop() {
+
+}
+
+void Main::trainingMode() {
+
+}
+
+// 剔除开关
+void Main::rejectorSwitch() {
+    if (ui->pushButton_07->isChecked()) {
+        // 权限验证
+        if (!confirmPassword("user", "开启剔除")) {
+            ui->pushButton_07->setChecked(false);
+            return;
+        }
+        ui->pushButton_07->setText("剔除开");
+        is_Rejector = true;
+        control_rejector = "1";
+    } else {
+        if (!confirmPassword("user", "关闭剔除")) {
+            ui->pushButton_07->setChecked(false);
+            return;
+        }
+        ui->pushButton_07->setText("剔除关");
+        is_Rejector = false;
+        control_rejector = "0";
+    }
 }
