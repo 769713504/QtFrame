@@ -27,6 +27,13 @@ public:
     std::map<int, QString> error_type_dict;
     std::vector<ParamsStruct> params_vector;
 
+    void test() {
+        printf("==%d==\n", x1);
+        printf("==%d==\n", y1);
+        printf("==%d==\n", x2);
+        printf("==%d==\n", y2);
+    }
+
     // 定义错误类型
     void defErrorType();
 

@@ -8,16 +8,9 @@
 
 void Main::test() {
 
-    confirmPassword("admin", "权限验证");
-    cout << "Test~" << endl;
+
 }
 
-int fun01() {
-    cout << 999 << endl;
-    return 0;
-}
-
-// 析构
 Main::~Main() {
     delete ui;
 }
@@ -136,8 +129,11 @@ void Main::changNowCamera(int cam_num) {
     showImageToMainLabelByRadioButtonControl();
     // 从缓存显示
     displayFromCache();
-    //    显示训练模式下的矩形区域
-    //    label_main.updateRect(*(self.train_coordinates_list[self.now_show_num])) todo
+    // 显示训练模式下的矩形区域
+    ui->label_main->updateRect(camera_config_struct_vector.at(now_show_num).topLeft.x(),
+                               camera_config_struct_vector.at(now_show_num).topLeft.y(),
+                               camera_config_struct_vector.at(now_show_num).bottomRight.x(),
+                               camera_config_struct_vector.at(now_show_num).bottomRight.y());
 }
 
 // 显示当前相机的参数列表
@@ -350,8 +346,10 @@ void Main::readCameraConfig_ToParamStructVector() {
 
     camera_config_dir_path = config_dir_path + product_type + "/";
 
-    int exposure_time, image_gain, frame_rate, train[4];
     QString camera_config_path;
+    int exposure_time, image_gain, frame_rate;
+    int x1, y1, x2, y2;
+    int width, height;
 
     for (int i = 0; i < cam_sum; i++) {
         camera_config_path = camera_config_dir_path + "camera" + QString::number(i) + ".ini";
@@ -360,13 +358,18 @@ void Main::readCameraConfig_ToParamStructVector() {
         exposure_time = configIniRead.value("camera/exposure_time").toInt();
         image_gain = configIniRead.value("camera/image_gain").toInt();
         frame_rate = configIniRead.value("camera/frame_rate").toInt();
-        train[0] = configIniRead.value("train/x1").toInt();
-        train[1] = configIniRead.value("train/y1").toInt();
-        train[2] = configIniRead.value("train/x2").toInt();
-        train[3] = configIniRead.value("train/y2").toInt();
+        int train[4];
+        x1 = configIniRead.value("train/x1").toInt();
+        y1 = configIniRead.value("train/y1").toInt();
+        x2 = configIniRead.value("train/x2").toInt();
+        y2 = configIniRead.value("train/y2").toInt();
+
+        width = configIniRead.value("image/width").toInt();
+        height = configIniRead.value("image/height").toInt();
         // todo 未添加de参数
 
-        CAMERA_CONFIG_STRUCT camera_config_list{camera_config_path, exposure_time, image_gain, frame_rate, train};
+        CAMERA_CONFIG_STRUCT camera_config_list{camera_config_path, exposure_time, image_gain, frame_rate,
+                                                QPoint(x1, y1), QPoint(x2, y2), width, height};
 
         camera_config_struct_vector.push_back(camera_config_list);
     }
@@ -382,10 +385,14 @@ void Main::writeCameraConfig_FromParamStructVector() {
         configIniRead.setValue("camera/exposure_time", camera_config_struct_vector.at(i).exposure_time);
         configIniRead.setValue("camera/image_gain", camera_config_struct_vector.at(i).image_gain);
         configIniRead.setValue("camera/frame_rate", camera_config_struct_vector.at(i).frame_rate);
-        configIniRead.setValue("train/x1", camera_config_struct_vector.at(i).train[0]);
-        configIniRead.setValue("train/y1", camera_config_struct_vector.at(i).train[1]);
-        configIniRead.setValue("train/x2", camera_config_struct_vector.at(i).train[2]);
-        configIniRead.setValue("train/y2", camera_config_struct_vector.at(i).train[3]);
+
+        configIniRead.setValue("train/x1", camera_config_struct_vector.at(i).topLeft.x());
+        configIniRead.setValue("train/y1", camera_config_struct_vector.at(i).topLeft.y());
+        configIniRead.setValue("train/x2", camera_config_struct_vector.at(i).bottomRight.x());
+        configIniRead.setValue("train/y2", camera_config_struct_vector.at(i).bottomRight.y());
+
+        configIniRead.setValue("image/width", camera_config_struct_vector.at(i).width);
+        configIniRead.setValue("image/height", camera_config_struct_vector.at(i).height);
         // todo 未添加de参数
     }
 }
@@ -413,7 +420,7 @@ void Main::initializeVariable() {
     // 所有相机配置文件中的坐标列表
     // self.train_coordinates_list = self.getTrainCoordinatesList()
     // 所有相机配置文件中 图像缩放比列表[[1.6,1.6],[x,y],...]
-    // self.train_zoom_ratio_list = self.getZoomRatioList()
+    getAllCameraZoomRatioVector();
     // 初始化日表对象
     // self.csv_path = self.getCsvPath()
     // "批"时间ID
@@ -694,6 +701,32 @@ void Main::errorStop() {
 
 void Main::trainingMode() {
 
+    if (ui->pushButton_06->isChecked()) {
+        // 权限验证
+        if (!confirmPassword("user", "训练模式")) {
+            ui->pushButton_06->setChecked(false);
+            return;
+        }
+        // 禁用单选按钮
+        disabledRadioButton();
+        ui->pushButton_06->setText("保存坐标");
+        // 开启捕捉
+        ui->label_main->setDrawRect(true);
+    } else {
+        ui->pushButton_06->setText("训练模式");
+        // 关闭捕捉
+        ui->label_main->setDrawRect(false);
+        // 获取坐标
+        ui->label_main->getCoord(coord_array);
+        // 调整坐标
+        trimCoordinates(coord_array);
+        // 存入配置文件
+        updateCameraConfig(coord_array);
+        // 更新相机的坐标参数
+        updateNowCoord(coord_array);
+        // 启用单选按钮
+        enabledRadioButton();
+    }
 }
 
 // 剔除开关
@@ -715,5 +748,44 @@ void Main::rejectorSwitch() {
         ui->pushButton_07->setText("剔除关");
         is_Rejector = false;
         control_rejector = "0";
+    }
+}
+
+// 调整坐标
+void Main::trimCoordinates(int *array) {
+    if (array[0] < 0) array[0] = 0;
+    if (array[1] < 0) array[1] = 0;
+    if (array[2] > ui->label_main->width()) array[2] = ui->label_main->width();
+    if (array[3] > ui->label_main->height()) array[3] = ui->label_main->height();
+
+}
+
+// 更新相机配置文件
+void Main::updateCameraConfig(int *array) {
+    camera_config_struct_vector.at(now_show_num).topLeft.setX(array[0]);
+    camera_config_struct_vector.at(now_show_num).topLeft.setY(array[1]);
+    camera_config_struct_vector.at(now_show_num).bottomRight.setX(array[2]);
+    camera_config_struct_vector.at(now_show_num).bottomRight.setY(array[3]);
+}
+
+// 更新相机的坐标参数
+void Main::updateNowCoord(int *array) {
+    float zoom_x = allCamera_zoomRatio_mapVector[now_show_num].zoom_width;
+    float zoom_y = allCamera_zoomRatio_mapVector[now_show_num].zoom_height;
+
+    visual_detection_object_vector[now_show_num]->x1 = array[0] * zoom_x;
+    visual_detection_object_vector[now_show_num]->y1 = array[1] * zoom_y;
+    visual_detection_object_vector[now_show_num]->x2 = array[2] * zoom_x;
+    visual_detection_object_vector[now_show_num]->y2 = array[3] * zoom_y;
+}
+
+// 获取所有相机的 缩放比结构体 向量
+void Main::getAllCameraZoomRatioVector() {
+    float m_w = ui->label_main->width(), m_h = ui->label_main->height();
+
+    for (int i = 0; i < cam_sum; i++) {
+        float width = camera_config_struct_vector.at(i).width;
+        float height = camera_config_struct_vector.at(i).height;
+        allCamera_zoomRatio_mapVector.push_back({width / m_w, height / m_h});
     }
 }

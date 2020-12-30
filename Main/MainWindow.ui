@@ -29,7 +29,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label_main">
+   <widget class="EventLabel" name="label_main">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -658,6 +658,13 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>EventLabel</class>
+   <extends>QLabel</extends>
+   <header location="global">Main/MyWidget.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>pushButton_05</tabstop>
   <tabstop>pushButton_01</tabstop>

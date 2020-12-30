@@ -35,7 +35,7 @@ aux_source_directory(./CV SRC_LIST)
 
 
 #生成可执行文件(ExecutableName SourceFileList)
-add_executable(QtFrame ${SRC_LIST})
+add_executable(QtFrame ${SRC_LIST} Main/MyWidget.h)
 
 #为项目添加共享库链接(ExecutableName QWidgets)
 #target_link_libraries(QtFrame Qt5::Widgets ${CMAKE_SOURCE_DIR}/File_Static/MvCameraControlx64.lib)

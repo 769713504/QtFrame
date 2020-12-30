@@ -20,17 +20,20 @@ namespace Ui {
     class MainWindow;
 }
 
-
 // Todo ------------------------------------------------  结构体定义  ----------------------------------------------------
 
 //相机配置结构体
 struct CAMERA_CONFIG_STRUCT {
     QString config_path;
-
-    int exposure_time;
-    int image_gain;
-    int frame_rate;
-    int *train;
+    int exposure_time, image_gain, frame_rate;
+    QPoint topLeft;
+    QPoint bottomRight;
+    int width, height;
+};
+// 图像缩放结构体
+struct IMAGE_ZOOM_STRUCT {
+    float zoom_width;
+    float zoom_height;
 };
 
 
@@ -47,8 +50,10 @@ public: // Todo -----------------------------------------  公有变量  -------
     vector<CAMERA_CONFIG_STRUCT> camera_config_struct_vector;
     //视觉检测对象向量
     vector<DetectionBase *> visual_detection_object_vector;
-    //所有相机 参数列表容器 的容器
+    //所有相机 参数列表容器 的向量
     vector<vector<QSpinBox *> > allCamera_spinBoxVector_Vector;
+    // 所有相机 缩放比例向量
+    vector<IMAGE_ZOOM_STRUCT> allCamera_zoomRatio_mapVector;
 
     map<int, QString> *error_type_dict;
 
@@ -62,12 +67,10 @@ public: // Todo -----------------------------------------  公有变量  -------
 
 private: // Todo ----------------------------------------  私有变量  -----------------------------------------------------
     bool is_run{false};
-
-
+    // 训练模式坐标
+    int coord_array[4]{0};
     // 图像显示控制数组: 0关闭 1原图 2灰度图
     int label_main_control_array[6]{1, 0, 0, 0, 0, 0};
-
-
     // 相机对象向量
     vector<CMvCamera> camera_object_vector;
     // 参数列表向量
@@ -226,6 +229,13 @@ private: // Todo -----------------------------------------  私有函数  ------
     void getVisualDetectionObjectVector();
 
 
+    void trimCoordinates(int *array);
+
+    void updateCameraConfig(int *array);
+
+    void updateNowCoord(int *array);
+
+    void getAllCameraZoomRatioVector();
 };
 
 #endif
