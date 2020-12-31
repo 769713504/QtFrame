@@ -5,9 +5,20 @@
 #include "Child_CameraConfig/CameraConfig.h"
 #include "Child_SystemConfig/SystemConfig.h"
 #include "CV/SetCameraMap.h"
+#include <QDebug>
+#include <QtSerialPort/QSerialPort>        //提供访问串口的功能
+#include <QtSerialPort/QSerialPortInfo>    //提供系统中存在的串口的信息
 
 void Main::test() {
+    // QStringList m_serialPortName;
 
+            foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts()) {
+            qDebug() << "端口 : " << info.portName();
+            qDebug() << "描述 : " << info.description();
+            qDebug() << "制造商: " << info.manufacturer();
+            qDebug() << "序列号: " << info.serialNumber();
+            qDebug() << "系统位置: " << info.systemLocation();
+        }
 
 }
 
